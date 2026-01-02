@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クイズコンソール - リモート同期版</title>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: "Helvetica Neue", Arial, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #eef2f3; padding: 20px; color: #333; }
+        .container { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 650px; margin-bottom: 20px;}
+        
+        /* ロール選択画面 */
+        .role-selection { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+        
+        /* 管理画面用スタイル */
+        .admin-script-area { background: #fff9db; border: 2px solid #f1c40f; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
+        .admin-ans-area { background: #e8f4fd; border: 2px solid #3498db; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .admin-label { font-size: 0.7rem; font-weight: bold; color: #7f8c8d; margin-bottom: 3px; }
+        #display { font-size: 1.2rem; min-height: 4em; border: 2px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 10px; background: #f9f9f9; white-space: pre-wrap; line-height: 1.6;}
+        
+        /* ボタン類 */
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #3498db; color: white; width: 100%; margin-bottom: 10px; }
+        .btn-stop { background: #e74c3c; color: white; width: 100%; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        
+        /* 回答者用スタイル */
+        #player-ui { text-align: center; }
+        #playerName { width: 90%; padding: 15px; font-size: 1.2rem; border-radius: 8px; border: 2px solid #ddd; margin-bottom: 20px; }
+        #remote-button { 
+            width: 280px; height: 280px; border-radius: 50%; 
+            border: 12px solid #c0392b; background: #e74c3c; color: white; 
+            font-size: 3rem; font-weight: bold; cursor: pointer; 
+            display: none; margin: 20px auto;
+            box-shadow: 0 10px #962d22;
+        }
+        #remote-button:active { box-shadow: 0 2px #962d22; transform: translateY(8px); }
+        #status-msg { font-size: 1.5rem; font-weight: bold; margin: 20px 0; }
+        
+        /* 押し判定表示 */
+        #winner-display { background: #f39c12; color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; font-size: 1.4rem; font-weight: bold; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+<div id="role-ui" class="container">
+    <h2 style="text-align:center;">クイズに参加</h2>
+    <div class="role-selection">
+        <button class="btn-primary" onclick="initRole('admin')">💻 出題者として起動</button>
+        <button class="btn-primary" style="background:#9b59b6" onclick="initRole('player')">📱 回答者として参加</button>
+    </div>
+</div>
+
+<div id="admin-ui" class="container" style="display:none;">
+    <button class="btn-primary" style="background:#8e44ad" onclick="openSubWindow()">💻 視聴者用ウィンドウを開く</button>
+    
+    <div id="winner-display" style="display:none;">
+        🔔 <span id="winner-name">---</span> さんが押しました！
+    </div>
+
+    <div class="admin-script-area">
+        <div class="admin-label">【全文】</div>
+        <div id="adminFullText">---</div>
+    </div>
+    <div class="admin-ans-area">
+        <div class="admin-label">【答え】</div>
+        <div id="adminAnswer">---</div>
+    </div>
+
+    <div id="display">待機中...</div>
+
+    <div class="controls">
+        <button id="startBtn" class="btn-primary" onclick="startQuiz()">出題開始</button>
+        <button id="stopBtn" class="btn-stop" onclick="stopQuiz()" disabled>停止</button>
+    </div>
+    
+    <button class="btn-primary" style="background:#2ecc71" onclick="setNextQuestion()">次の問題をセット</button>
+    <button class="btn-primary" style="background:#f1c40f" onclick="showAnswer()">答えを表示</button>
+</div>
+
+<div id="player-ui" class="container" style="display:none;">
+    <input type="text" id="playerName" placeholder="あなたの名前を入力">
+    <div id="status-msg">接続中...</div>
+    <button id="remote-button" onclick="pushButton()">PUSH!</button>
+</div>
+
+<script>
+    // Firebase設定（指定いただいたURLを適用）
+    const firebaseConfig = {
+        databaseURL: "https://realtime-database-c0015-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentRole = "";
+    let quizData = { q: "ここに問題文が表示されます。", a: "答え" };
+    let revealedCount = 0;
+    let timer = null;
+    let subWindow = null;
+
+    function initRole(role) {
+        currentRole = role;
+        document.getElementById("role-ui").style.display = "none";
+        document.getElementById(role + "-ui").style.display = "block";
+        
+        if (role === 'admin') setupAdmin();
+        if (role === 'player') setupPlayer();
+    }
+
+    // --- 【共通】表示更新 ---
+    function updateDisplay() {
+        const text = quizData.q;
+        const visibleText = text.substring(0, revealedCount);
+        const hiddenText = text.substring(revealedCount).replace(/./g, "＿");
+        const html = `<span>${visibleText}</span><span style="color:#ccc;">${hiddenText}</span>`;
+        
+        document.getElementById("display").innerHTML = html;
+        if (subWindow && !subWindow.closed) {
+            subWindow.document.getElementById("text").innerHTML = html;
+        }
+    }
+
+    // --- 【出題者】ロジック ---
+    function setupAdmin() {
+        // 早押し判定の監視
+        db.ref("status").on("value", (snap) => {
+            if (snap.val() === "pushed") {
+                handlePush();
+            }
+        });
+        setNextQuestion();
+    }
+
+    function setNextQuestion() {
+        // 本来はここをCSV読み込みにする
+        quizData = { q: "日本で一番高い山は富士山ですが、二番目に高い山は何でしょう？", a: "北岳" };
+        revealedCount = 0;
+        document.getElementById("adminFullText").innerText = quizData.q;
+        document.getElementById("adminAnswer").innerText = quizData.a;
+        document.getElementById("winner-display").style.display = "none";
+        db.ref("status").set("idle");
+        db.ref("winner").set("");
+        updateDisplay();
+    }
+
+    function startQuiz() {
+        if (timer) return;
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        db.ref("status").set("active"); // 回答受付開始
+        
+        timer = setInterval(() => {
+            if (revealedCount < quizData.q.length) {
+                revealedCount++;
+                updateDisplay();
+            } else {
+                stopQuiz();
+            }
+        }, 150); // 文字送り速度
+    }
+
+    function stopQuiz() {
+        clearInterval(timer);
+        timer = null;
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+    }
+
+    function handlePush() {
+        stopQuiz();
+        db.ref("winner").once("value", (s) => {
+            const name = s.val();
+            document.getElementById("winner-display").style.display = "block";
+            document.getElementById("winner-name").innerText = name;
+            if (subWindow) {
+                subWindow.document.getElementById("winner").innerText = name + " PUSH!";
+                subWindow.document.getElementById("winner").style.display = "block";
+            }
+        });
+    }
+
+    function showAnswer() {
+        if (subWindow) {
+            subWindow.document.getElementById("ans").innerText = "答：" + quizData.a;
+            subWindow.document.getElementById("ans").style.display = "block";
+        }
+    }
+
+    function openSubWindow() {
+        subWindow = window.open("", "QuizSub", "width=1000,height=700");
+        subWindow.document.write(`
+            <html><body style="background:#000; color:#fff; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; overflow:hidden;">
+                <div id="winner" style="font-size:4rem; color:#f39c12; display:none; margin-bottom:20px;"></div>
+                <div id="text" style="font-size:3.5rem; text-align:center; width:90%; line-height:1.5;"></div>
+                <div id="ans" style="font-size:6rem; color:#f1c40f; display:none; margin-top:30px; border:8px solid #f1c40f; padding:20px 50px; border-radius:20px;"></div>
+            </body></html>
+        `);
+    }
+
+    // --- 【回答者】ロジック ---
+    function setupPlayer() {
+        db.ref("status").on("value", (snap) => {
+            const status = snap.val();
+            const btn = document.getElementById("remote-button");
+            const msg = document.getElementById("status-msg");
+            
+            if (status === "active") {
+                btn.style.display = "block";
+                msg.innerText = "押せ！！";
+                msg.style.color = "#e74c3c";
+            } else if (status === "pushed") {
+                btn.style.display = "none";
+                db.ref("winner").once("value", (s) => {
+                    msg.innerText = s.val() + " さんが押し！";
+                    msg.style.color = "#f39c12";
+                });
+            } else {
+                btn.style.display = "none";
+                msg.innerText = "問題待機中...";
+                msg.style.color = "#333";
+            }
+        });
+    }
+
+    function pushButton() {
+        const name = document.getElementById("playerName").value || "名無し";
+        db.ref("status").transaction((current) => {
+            if (current === "active") {
+                db.ref("winner").set(name);
+                return "pushed"; // 状態をロック
+            }
+        });
+    }
+</script>
+</body>
+</html>
