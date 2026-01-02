@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>クイズコンソール - 完全統合版</title>
+    <title>クイズコンソール - スコア・判定完全版</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -12,37 +12,32 @@
         .container { background: white; padding: 1.5rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); flex: 1; }
         .sidebar { width: 450px; background: white; padding: 1rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; }
         
-        /* 管理者カンペ */
+        /* 管理者エリア */
         .admin-script-area { background: #fff9db; border: 2px solid #f1c40f; padding: 12px; border-radius: 10px; margin-bottom: 15px; }
         #adminAnswer { color: #e74c3c; font-weight: bold; font-size: 1.2rem; }
 
-        /* 文字種別表示パネル */
         .char-type-panel { background: #f1f2f6; padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #3498db; }
         .btn-type { background: #fff; border: 1px solid #3498db; color: #3498db; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; margin: 2px; font-weight: bold; }
-        .btn-type:hover { background: #3498db; color: white; }
 
-        /* 問題表示 */
         #display { font-size: 1.6rem; min-height: 4.5em; border: 2px solid #ddd; padding: 20px; border-radius: 12px; margin-bottom: 15px; background: #fafafa; white-space: pre-wrap; line-height: 1.6; width: 100%; box-sizing: border-box; }
         #display span.hidden { color: transparent; user-select: none; }
 
-        /* 問題リストのスタイル改善 */
-        .quiz-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
-        .quiz-item:hover { background: #f0f7ff; }
-        .quiz-item .q-text { color: #2c3e50; font-weight: bold; margin-bottom: 4px; display: block; }
-        .quiz-item .a-text { color: #e74c3c; font-size: 0.8rem; background: #fee; padding: 2px 6px; border-radius: 4px; }
+        /* スコア・判定ボタン */
+        .judge-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; background: #eee; padding: 10px; border-radius: 10px; }
+        .btn-ok { background: #2ecc71; color: white; font-size: 1.2rem; }
+        .btn-ng { background: #e74c3c; color: white; font-size: 1.2rem; }
 
-        .genre-selector { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; position: sticky; top: 0; background: white; padding-bottom: 10px; z-index: 10; }
-        .btn-genre { background: #ecf0f1; border: 1px solid #bdc3c7; font-size: 0.8rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-        .btn-genre.active { background: #3498db; color: white; border-color: #2980b9; }
+        .quiz-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .quiz-item .q-text { color: #2c3e50; font-weight: bold; display: block; font-size: 0.85rem; }
+        .quiz-item .a-text { color: #e74c3c; font-size: 0.8rem; background: #fee; padding: 1px 4px; border-radius: 3px; }
 
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-primary { background: #3498db; color: white; }
-        .btn-stop { background: #e74c3c; color: white; }
+        .btn-reveal { background: #8e44ad; color: white; grid-column: span 2; }
 
-        /* 解答者ボタン */
-        #remote-button { width: 280px; height: 280px; border-radius: 50%; border: 12px solid #7f8c8d; background: #95a5a6; color: white; font-size: 3rem; display: none; margin: 20px auto; box-shadow: 0 10px #7f8c8d; transition: 0.1s; }
+        /* 回答者ボタン */
+        #remote-button { width: 280px; height: 280px; border-radius: 50%; border: 12px solid #7f8c8d; background: #95a5a6; color: white; font-size: 3rem; display: none; margin: 20px auto; }
         #remote-button.active { border-color: #c0392b; background: #e74c3c; box-shadow: 0 10px #962d22; cursor: pointer; }
     </style>
 </head>
@@ -63,8 +58,16 @@
             <div id="adminFullText" style="margin-top:5px; color:#555; font-size: 0.9rem;">問題を選択してください</div>
         </div>
 
+        <div id="winner-info" style="margin-bottom:10px; font-weight:bold; color:#e67e22; font-size:1.1rem; text-align:center;">
+            回答者: <span id="current-winner-name">---</span>
+        </div>
+
+        <div class="judge-controls">
+            <button class="btn-ok" onclick="manualJudge(true)">⭕ 正解 (口頭回答等)</button>
+            <button class="btn-ng" onclick="manualJudge(false)">❌ 不正解</button>
+        </div>
+
         <div class="char-type-panel">
-            <span>🔠 文字種別ヒント (押すと解答許可されます)</span>
             <button class="btn-type" onclick="revealByType('symbol')">記号</button>
             <button class="btn-type" onclick="revealByType('hiragana')">かな</button>
             <button class="btn-type" onclick="revealByType('katakana')">カナ</button>
@@ -76,22 +79,16 @@
 
         <div class="controls">
             <button id="startBtn" class="btn-primary" onclick="startQuiz()">自動読み上げ開始</button>
-            <button id="stopBtn" class="btn-stop" onclick="stopQuiz()" disabled>一時停止</button>
+            <button class="btn-stop" onclick="stopQuiz()">停止</button>
+            <button class="btn-reveal" onclick="finishAndReview()">📖 おさらい＆戦績表示</button>
         </div>
         <div class="controls">
-            <button id="randBtn" class="btn-primary" style="background:#2ecc71;" onclick="setNextRandom()">🎲 ランダム出題</button>
-            <button id="backBtn" class="btn-primary" style="background:#95a5a6;" onclick="goBack()" disabled>🔙 前へ戻る</button>
+            <button class="btn-primary" style="background:#2ecc71;" onclick="setNextRandom()">🎲 ランダム</button>
+            <button id="backBtn" class="btn-primary" style="background:#95a5a6;" onclick="goBack()" disabled>🔙 前へ</button>
         </div>
     </div>
 
     <div class="sidebar">
-        <div class="genre-selector">
-            <button id="g-all" class="btn-genre active" onclick="changeGenre('all')">全件</button>
-            <button id="g-anime" class="btn-genre" onclick="changeGenre('anime')">アニメ</button>
-            <button id="g-social" class="btn-genre" onclick="changeGenre('social')">社会</button>
-            <button id="g-life" class="btn-genre" onclick="changeGenre('life')">ライフ</button>
-            <button id="g-sport" class="btn-genre" onclick="changeGenre('sport')">スポ</button>
-        </div>
         <div id="quizList"></div>
     </div>
 </div>
@@ -99,27 +96,20 @@
 <div id="player-ui" class="container" style="display:none; text-align:center;">
     <input type="text" id="playerName" placeholder="名前を入力" style="padding:15px; width:80%; font-size:1.2rem; margin-bottom:20px; border-radius:8px; border:1px solid #ccc;">
     <div id="status-msg" style="font-size:1.5rem; font-weight:bold; margin-bottom:10px;">接続中...</div>
-    <div id="timer-display" style="font-size: 2.5rem; font-weight: bold; display: none; margin-bottom: 10px;">残り 10 秒</div>
+    <div id="timer-display" style="font-size: 2.5rem; font-weight: bold; display: none;">残り 10 秒</div>
     <button id="remote-button" disabled onclick="pushButton()">PUSH!</button>
     <div id="answer-input-area" style="display:none; margin-top:20px;">
         <input type="text" id="playerAnswerField" placeholder="答えを入力...">
-        <button id="submitAnsBtn" class="btn-primary" style="width:100%; margin-top:10px;" onclick="submitAnswer()">回答送信</button>
+        <button class="btn-primary" style="width:100%; margin-top:10px;" onclick="submitAnswer()">送信</button>
     </div>
 </div>
 
 <script>
-    const URLS = {
-        anime: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTBRf9k4zS7Ht5s7GKejqT2d-cyWbDHd19DwTPmAzoHe40d9nV1cVu-RH565sIq9GbYmEKkzhpBytp/pub?output=csv",
-        social: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXVYOqHu_0VRIkiVK0RQO-ZWPZ6pHGqIw5VxBWdOlg3-HbP3q26gM0fVxTndREhjqbaxFzcjeuoMcE/pub?output=csv",
-        life: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTr7JL0lBCMLRBFi-CraPlJxzp4xrGD8RSnc8MSuoV3ORISo0iCFWMmI_FCtDlgkxwPqmv_TwAvufn/pub?output=csv",
-        sport: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSJYls3O8_98SKNWqx34c0V5HLIaXdxxA8v4E3c1iwrTFZBL1TSzeem9AbKZKYfMkQEcu7bECcsgVo/pub?output=csv"
-    };
-
     const firebaseConfig = { databaseURL: "https://realtime-database-c0015-default-rtdb.firebaseio.com/" };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let masterData = { anime: [], social: [], life: [], sport: [], custom: [] };
+    let masterData = [];
     let usedQuizzes = new Set();
     let currentQuiz = { q: "", a: "" };
     let revealedIndexes = [];
@@ -127,49 +117,70 @@
     let timer = null;
     let limitTimer = null;
     let subWindow = null;
-    let currentGenre = 'all';
     let historyStack = [];
+    let currentWinner = "";
 
     async function initRole(role) {
         document.getElementById("role-ui").style.display = "none";
         document.getElementById(role + "-ui").style.display = (role === 'admin' ? 'flex' : 'block');
         if (role === 'admin') {
-            const res = await Promise.all(Object.values(URLS).map(url => fetch(url).then(r => r.text())));
-            masterData.anime = parseCSV(res[0]); masterData.social = parseCSV(res[1]);
-            masterData.life = parseCSV(res[2]); masterData.sport = parseCSV(res[3]);
+            const res = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vQTBRf9k4zS7Ht5s7GKejqT2d-cyWbDHd19DwTPmAzoHe40d9nV1cVu-RH565sIq9GbYmEKkzhpBytp/pub?output=csv").then(r => r.text());
+            masterData = res.split(/\r?\n/).slice(1).map(row => { const p = row.split(","); return { q: p[0], a: p[1] }; });
+            db.ref("winner").on("value", snap => { currentWinner = snap.val(); document.getElementById("current-winner-name").innerText = currentWinner || "---"; });
             db.ref("status").on("value", snap => { if (snap.val() === "pushed") { stopQuiz(); startLimitCounter(); } });
-            db.ref("submit").on("value", snap => { if (snap.val()) processAutoJudge(snap.val()); });
-            changeGenre('all');
+            db.ref("submit").on("value", snap => { if (snap.val()) autoJudge(snap.val().text); });
+            refreshCandidateList();
         } else { setupPlayer(); }
     }
 
-    function parseCSV(t) { return t.split(/\r?\n/).slice(1).filter(r => r.trim() !== "").map(row => { const p = row.split(","); return { q: p[0] || "", a: p[1] || "" }; }); }
-
-    // 文字種別表示 + 解答許可
-    function revealByType(type) {
-        if (!currentQuiz.q) return;
-        // 読み上げなしでこのボタンを押した場合も解答できるようにステータスをactiveにする
-        db.ref("status").set("active"); 
+    function manualJudge(isCorrect) {
+        if (!currentWinner) return;
+        processScore(currentWinner, isCorrect);
+        const msg = isCorrect ? "⭕ 正解！" : "❌ 不正解！";
+        db.ref().update({ feedback: msg, countdown: 0 });
+        if (subWindow) subWindow.showResult(msg, isCorrect ? "#2ecc71" : "#e74c3c");
         
-        const text = currentQuiz.q;
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            let reveal = (type === 'all');
-            if (type === 'symbol' && (char.match(/[^\w\s\u3040-\u30ff\u4e00-\u9faf]/) || "！？〜".includes(char))) reveal = true;
-            if (type === 'hiragana' && char.match(/[\u3040-\u309f]/)) reveal = true;
-            if (type === 'katakana' && char.match(/[\u30a0-\u30ff]/)) reveal = true;
-            if (type === 'kanji' && char.match(/[\u4e00-\u9faf]/)) reveal = true;
-            if (reveal && !revealedIndexes.includes(i)) revealedIndexes.push(i);
-        }
-        syncDisplay();
+        setTimeout(() => {
+            if (!isCorrect) { db.ref().update({ status: "active", winner: "", feedback: "" }); startQuiz(); }
+            else { db.ref().update({ status: "idle", winner: "", feedback: "" }); }
+        }, 2000);
     }
 
+    function autoJudge(pAns) {
+        const isCorrect = (pAns.trim() === currentQuiz.a.trim());
+        manualJudge(isCorrect);
+        db.ref("submit").set(null);
+    }
+
+    function processScore(name, isCorrect) {
+        const scoreRef = db.ref("scores/" + name);
+        scoreRef.transaction(curr => {
+            curr = curr || { correct: 0, wrong: 0 };
+            if (isCorrect) curr.correct++; else curr.wrong++;
+            return curr;
+        });
+    }
+
+    function finishAndReview() {
+        stopQuiz();
+        revealByType('all');
+        db.ref("scores").once("value", snap => {
+            const scores = snap.val() || {};
+            let scoreHtml = "<h3>【最終戦績】</h3><table style='margin:auto; font-size:2rem; border-spacing:20px 10px;'>";
+            for (let name in scores) {
+                scoreHtml += `<tr><td>${name}</td><td style='color:#2ecc71;'>⭕${scores[name].correct}</td><td style='color:#e74c3c;'>❌${scores[name].wrong}</td></tr>`;
+            }
+            scoreHtml += "</table>";
+            const msg = `正解: ${currentQuiz.a}<br>${scoreHtml}`;
+            db.ref().update({ status: "idle", feedback: "おさらい中..." });
+            if (subWindow) subWindow.showReview(msg);
+        });
+    }
+
+    // --- 基本ロジック（前バージョン準拠） ---
     function startQuiz() {
         if (isRunning || !currentQuiz.q) return;
-        isRunning = true;
-        db.ref("status").set("active");
-        document.getElementById("startBtn").disabled = true; 
-        document.getElementById("stopBtn").disabled = false;
+        isRunning = true; db.ref("status").set("active");
         timer = setInterval(() => {
             if (revealedIndexes.length < currentQuiz.q.length) {
                 let next = 0; while(revealedIndexes.includes(next)) next++;
@@ -177,157 +188,73 @@
             } else { stopQuiz(); }
         }, 150);
     }
-
-    function stopQuiz() { isRunning = false; clearInterval(timer); document.getElementById("startBtn").disabled = false; document.getElementById("stopBtn").disabled = true; }
-
-    function refreshCandidateList() {
-        let pool = currentGenre === 'all' ? Object.values(masterData).flat() : masterData[currentGenre];
-        let available = pool.filter(item => !usedQuizzes.has(item.q));
-        // 全件表示で見やすくする
-        document.getElementById("quizList").innerHTML = available.slice(0, 20).map(item => {
-            const safeQ = item.q.replace(/'/g,"\\'");
-            const safeA = item.a.replace(/'/g,"\\'");
-            return `
-            <div class="quiz-item" onclick="applyQuiz({q:'${safeQ}', a:'${safeA}'})">
-                <span class="q-text">${item.q}</span>
-                <span class="a-text">答: ${item.a}</span>
-            </div>`;
-        }).join("");
-    }
-
-    function applyQuiz(quizObj, isBack = false) {
-        if (isRunning) stopQuiz();
-        if (!isBack && currentQuiz.q) historyStack.push({...currentQuiz});
-        currentQuiz = quizObj; usedQuizzes.add(currentQuiz.q);
-        revealedIndexes = [];
+    function stopQuiz() { isRunning = false; clearInterval(timer); }
+    function applyQuiz(quizObj) {
+        currentQuiz = quizObj; usedQuizzes.add(currentQuiz.q); revealedIndexes = [];
         db.ref().update({ status: "idle", winner: "", submit: null, feedback: "", countdown: 10 });
         document.getElementById("adminAnswer").innerText = currentQuiz.a;
         document.getElementById("adminFullText").innerText = currentQuiz.q;
-        document.getElementById("startBtn").disabled = false;
-        document.getElementById("backBtn").disabled = historyStack.length === 0;
-        if (subWindow && !subWindow.closed) subWindow.resetForNext();
-        syncDisplay();
-        refreshCandidateList(); // 出題済みを除去するために更新
+        syncDisplay(); refreshCandidateList();
     }
-
     function syncDisplay() {
-        const html = Array.from(currentQuiz.q).map((c, i) => 
-            revealedIndexes.includes(i) ? `<span>${c}</span>` : `<span class="hidden">${c}</span>`
-        ).join("");
+        const html = Array.from(currentQuiz.q).map((c, i) => revealedIndexes.includes(i) ? `<span>${c}</span>` : `<span class="hidden">${c}</span>`).join("");
         document.getElementById("display").innerHTML = html;
-        if (subWindow && !subWindow.closed) subWindow.document.getElementById("text").innerHTML = html;
+        if (subWindow) subWindow.document.getElementById("text").innerHTML = html;
     }
-
+    function refreshCandidateList() {
+        document.getElementById("quizList").innerHTML = masterData.filter(i => !usedQuizzes.has(i.q)).slice(0, 15).map(i => `
+            <div class="quiz-item" onclick="applyQuiz({q:'${i.q.replace(/'/g,"\\'")}', a:'${i.a.replace(/'/g,"\\'")}'})">
+                <span class="q-text">${i.q}</span><span class="a-text">答: ${i.a}</span>
+            </div>`).join("");
+    }
+    function revealByType(type) {
+        db.ref("status").set("active");
+        Array.from(currentQuiz.q).forEach((c, i) => {
+            let r = (type === 'all');
+            if (type === 'symbol' && c.match(/[^\w\s\u3040-\u30ff\u4e00-\u9faf]/)) r = true;
+            if (type === 'hiragana' && c.match(/[\u3040-\u309f]/)) r = true;
+            if (type === 'katakana' && c.match(/[\u30a0-\u30ff]/)) r = true;
+            if (type === 'kanji' && c.match(/[\u4e00-\u9faf]/)) r = true;
+            if (r && !revealedIndexes.includes(i)) revealedIndexes.push(i);
+        });
+        syncDisplay();
+    }
     function setupPlayer() {
         const nameInput = document.getElementById("playerName");
         const btn = document.getElementById("remote-button");
-        const inputArea = document.getElementById("answer-input-area");
-        const timerEl = document.getElementById("timer-display");
-        const msg = document.getElementById("status-msg");
-
         db.ref("status").on("value", snap => {
             const s = snap.val();
-            if (s === "active") {
-                btn.style.display = "block"; btn.disabled = false; btn.classList.add("active"); btn.innerText = "PUSH!";
-                inputArea.style.display = "none"; timerEl.style.display = "none";
-                msg.innerText = "出題中：押せます！"; msg.style.color = "#e74c3c";
-            } else if (s === "pushed") {
-                btn.disabled = true; btn.classList.remove("active");
+            if (s === "active") { btn.style.display = "block"; btn.disabled = false; btn.classList.add("active"); document.getElementById("answer-input-area").style.display = "none"; }
+            else if (s === "pushed") {
                 db.ref("winner").once("value", ws => {
-                    if (ws.val() === nameInput.value) {
-                        btn.style.display = "none"; inputArea.style.display = "block"; timerEl.style.display = "block";
-                        msg.innerText = "解答してください！"; document.getElementById("playerAnswerField").focus();
-                    } else { btn.innerText = "WAIT"; msg.innerText = ws.val() + "さんが回答中..."; }
+                    if (ws.val() === nameInput.value) { btn.style.display = "none"; document.getElementById("answer-input-area").style.display = "block"; document.getElementById("timer-display").style.display = "block"; }
                 });
-            } else {
-                btn.style.display = "block"; btn.disabled = true; btn.classList.remove("active"); btn.innerText = "待機中";
-                inputArea.style.display = "none"; timerEl.style.display = "none";
-                msg.innerText = "待機しています..."; msg.style.color = "#333";
-            }
+            } else { btn.style.display = "block"; btn.disabled = true; btn.classList.remove("active"); document.getElementById("answer-input-area").style.display = "none"; }
         });
-        db.ref("countdown").on("value", snap => { if (timerEl) timerEl.innerText = "残り " + snap.val() + " 秒"; });
-        db.ref("feedback").on("value", snap => { if (snap.val()) msg.innerText = snap.val(); });
+        db.ref("countdown").on("value", snap => { document.getElementById("timer-display").innerText = "残り " + snap.val() + " 秒"; });
     }
-
-    function pushButton() {
-        const name = document.getElementById("playerName").value || "名無し";
-        db.ref("status").transaction(curr => { if (curr === "active") { db.ref("winner").set(name); return "pushed"; } });
+    function pushButton() { const name = document.getElementById("playerName").value || "名無し"; db.ref("status").transaction(curr => { if (curr === "active") { db.ref("winner").set(name); return "pushed"; } }); }
+    function submitAnswer() { const ans = document.getElementById("playerAnswerField").value; if (ans) db.ref("submit").set({ text: ans }); document.getElementById("playerAnswerField").value = ""; }
+    function startLimitCounter() {
+        let count = 10; db.ref("countdown").set(count); clearInterval(limitTimer);
+        limitTimer = setInterval(() => { count--; db.ref("countdown").set(count); if (count <= -1) { clearInterval(limitTimer); manualJudge(false); } }, 1000);
     }
-
-    function submitAnswer() {
-        const ans = document.getElementById("playerAnswerField").value;
-        const name = document.getElementById("playerName").value || "名無し";
-        if (!ans) return;
-        db.ref("submit").set({ user: name, text: ans });
-        document.getElementById("playerAnswerField").value = "";
-    }
-
-    function changeGenre(g) {
-        currentGenre = g;
-        document.querySelectorAll('.btn-genre').forEach(b => b.classList.remove('active'));
-        document.getElementById('g-' + g).classList.add('active');
-        refreshCandidateList();
-    }
-
-    function setNextRandom() {
-        let pool = currentGenre === 'all' ? Object.values(masterData).flat() : masterData[currentGenre];
-        let available = pool.filter(item => !usedQuizzes.has(item.q));
-        if (available.length > 0) applyQuiz(available[Math.floor(Math.random() * available.length)]);
-    }
-
-    function goBack() { if (historyStack.length > 0) applyQuiz(historyStack.pop(), true); }
-
     function openSubWindow() {
         subWindow = window.open("", "QuizSub", "width=1200,height=800");
-        subWindow.document.write(`<html><head><style>#text span.hidden { color: transparent; }</style></head><body style="background:#000;color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;text-align:center;overflow:hidden;margin:0;">
-            <div id="countdown-sub" style="font-size:7rem; font-weight:bold; height:1.2em; display:none;"></div>
-            <div id="text" style="font-size:3.5rem;width:90%;line-height:1.5; min-height:5em;"></div>
-            <div id="res" style="font-size:7rem;margin-top:20px;font-weight:bold;"></div>
+        subWindow.document.write(`<html><body style="background:#000;color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;text-align:center;margin:0;">
+            <div id="countdown-sub" style="font-size:5rem; position:absolute; top:20px; right:20px;"></div>
+            <div id="text" style="font-size:3.5rem;width:90%;"></div>
+            <div id="res" style="font-size:5rem;margin-top:20px;font-weight:bold;"></div>
+            <div id="review" style="font-size:1.5rem;margin-top:20px;background:rgba(255,255,255,0.1);padding:20px;border-radius:20px;"></div>
             <script>
-                window.updateTimer = (n, status) => {
-                    const el = document.getElementById('countdown-sub');
-                    if (status === 'pushed' && n > 0 && n <= 10) { el.style.display = "block"; el.innerText = n; el.style.color = (n <= 3) ? "#e74c3c" : "#2ecc71"; }
-                    else { el.style.display = "none"; }
-                };
+                window.updateTimer = (n, status) => { const el = document.getElementById('countdown-sub'); el.innerText = (status==='pushed'&&n>0)?n:''; };
+                window.showResult = (t, c) => { const r = document.getElementById("res"); r.innerText = t; r.style.color = c; setTimeout(()=>r.innerText="", 2000); };
+                window.showReview = (html) => { document.getElementById("review").innerHTML = html; };
+                window.resetForNext = () => { document.getElementById("text").innerText = ""; document.getElementById("res").innerText = ""; document.getElementById("review").innerHTML = ""; };
             <\/script></body></html>`);
-        db.ref("countdown").on("value", snap => {
-            if (subWindow && !subWindow.closed && subWindow.updateTimer) {
-                db.ref("status").once("value", sSnap => subWindow.updateTimer(snap.val(), sSnap.val()));
-            }
-        });
-        subWindow.showResult = (t, c) => { const r = subWindow.document.getElementById("res"); r.innerText = t; r.style.color = c; };
-        subWindow.hideJudge = () => { subWindow.document.getElementById("res").innerText = ""; };
-        subWindow.resetForNext = () => { subWindow.document.getElementById("text").innerText = ""; subWindow.document.getElementById("res").innerText = ""; };
+        db.ref("countdown").on("value", snap => { if (subWindow && !subWindow.closed) subWindow.updateTimer(snap.val(), "pushed"); });
     }
-
-    function startLimitCounter() {
-        let count = 10;
-        db.ref("countdown").set(count);
-        clearInterval(limitTimer);
-        limitTimer = setInterval(() => {
-            count--; db.ref("countdown").set(count);
-            if (count <= -1) { clearInterval(limitTimer); processAutoJudge({ text: "---時間切れ---" }); }
-        }, 1000);
-    }
-
-    function processAutoJudge(answerData) {
-        clearInterval(limitTimer);
-        const pAns = answerData.text.trim();
-        const cAns = currentQuiz.a.trim();
-        if (pAns === cAns) {
-            db.ref().update({ status: "idle", feedback: "⭕ 正解！", countdown: 0 });
-            if (subWindow) subWindow.showResult("⭕ 正解！", "#2ecc71");
-        } else {
-            const msg = (pAns === "---時間切れ---") ? "⌛ 時間切れ！" : "❌ 不正解！";
-            db.ref().update({ feedback: msg, countdown: 0 });
-            if (subWindow) subWindow.showResult(msg, "#e74c3c");
-            setTimeout(() => {
-                if (subWindow) subWindow.hideJudge();
-                db.ref().update({ status: "idle", winner: "", feedback: "", countdown: 10 });
-            }, 2000);
-        }
-        db.ref("submit").set(null);
-    }
+    function setNextRandom() { let pool = masterData.filter(i => !usedQuizzes.has(i.q)); if (pool.length) applyQuiz(pool[Math.floor(Math.random()*pool.length)]); }
 </script>
 </body>
 </html>
