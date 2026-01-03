@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Ultimate Integrated</title>
+    <title>QuizConsole Pro - Complete Ultimate</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -12,7 +12,7 @@
         .container { background: var(--admin-card); padding: 1.2rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); flex: 1; }
         .sidebar { width: 420px; background: white; padding: 1rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; }
 
-        /* 問題表示エリア */
+        /* 問題表示エリア（視聴者同期） */
         #display {
             font-family: "Consolas", "Monaco", "Meiryo", monospace;
             font-size: 1.6rem; line-height: 1.8; min-height: 4.5em; padding: 20px;
@@ -22,12 +22,17 @@
         #display span { display: inline-block; min-width: 1.1em; text-align: center; }
         #display span.hidden { visibility: hidden; }
 
-        /* ジャンル・ボタン */
+        /* 【復活】管理者用プレビュー欄 */
+        .admin-preview {
+            background: #fff9db; border: 2px solid #f1c40f; padding: 12px; border-radius: 10px; margin-bottom: 15px; font-size: 0.9rem;
+        }
+        .admin-preview .ans-label { color: #e74c3c; font-weight: bold; font-size: 1.2rem; }
+        .admin-preview .q-label { color: #666; margin-top: 5px; display: block; line-height: 1.4; }
+
         .genre-selector { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; position: sticky; top: 0; background: white; z-index: 10; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
         .btn-genre { background: #ecf0f1; border: 1px solid #bdc3c7; font-size: 0.75rem; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
         .btn-genre.active { background: var(--primary); color: white; }
         
-        /* 管理画面コントロール */
         .hint-mode-box { background: #fff5f5; border: 2px solid var(--danger); padding: 10px; border-radius: 10px; margin-bottom: 15px; }
         .switch { position: relative; display: inline-block; width: 44px; height: 20px; vertical-align: middle; margin-right: 8px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -37,21 +42,15 @@
         input:checked + .slider:before { transform: translateX(24px); }
 
         button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
         .btn-primary { background: var(--primary); color: white; }
         .judge-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .btn-ok { background: var(--success); color: white; font-size: 1.1rem; }
         .btn-ng { background: var(--danger); color: white; font-size: 1.1rem; }
 
-        /* スコアボード */
         .score-board { margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 10px; border: 1px solid #ddd; }
         .score-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
-        .score-ac { color: var(--success); font-weight: bold; }
-        .score-wa { color: var(--danger); font-weight: bold; }
-
-        /* 解答者用ボタン */
-        #remote-button { width: 250px; height: 250px; border-radius: 50%; border: 10px solid #7f8c8d; background: #95a5a6; color: white; font-size: 3rem; display: none; margin: 20px auto; outline: none; box-shadow: 0 8px #7f8c8d; }
-        #remote-button.active { border-color: #c0392b; background: var(--danger); box-shadow: 0 8px #962d22; cursor: pointer; }
+        #remote-button { width: 250px; height: 250px; border-radius: 50%; border: 10px solid #7f8c8d; background: #95a5a6; color: white; font-size: 3rem; display: none; margin: 20px auto; outline: none; }
+        #remote-button.active { border-color: #c0392b; background: var(--danger); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -73,7 +72,7 @@
 
         <div class="hint-mode-box">
             <label class="switch"><input type="checkbox" id="hintModeSwitch" onchange="toggleHintMode(this.checked)"><span class="slider"></span></label>
-            <strong style="font-size:0.85rem;">文字種ヒント (読み上げ停止)</strong>
+            <strong style="font-size:0.85rem;">文字種ヒント (読上停止)</strong>
             <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:5px; margin-top:10px;">
                 <button id="h-symbol" class="btn-primary" style="background:#555; font-size:0.7rem;" onclick="revealByType('symbol')" disabled>記号</button>
                 <button id="h-hiragana" class="btn-primary" style="background:#555; font-size:0.7rem;" onclick="revealByType('hiragana')" disabled>かな</button>
@@ -82,7 +81,8 @@
             </div>
         </div>
 
-        <div style="background:#eee; padding:15px; border-radius:10px; margin-bottom:15px;">
+        <div style="background:#eee; padding:15px; border-radius:10px; margin-bottom:10px;">
+            <div style="font-size: 0.7rem; margin-bottom: 5px;">読み上げ速度</div>
             <input type="range" id="speedRange" min="50" max="600" step="10" value="150" style="width:100%;" oninput="updateSpeed(this.value)">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                 <button id="startBtn" class="btn-primary" onclick="startQuiz()">読み上げ開始</button>
@@ -90,16 +90,21 @@
             </div>
         </div>
 
-        <div id="display">問題を選択してください</div>
+        <div class="admin-preview">
+            <div><strong>【現在の答え】</strong> <span id="adminAnswer" class="ans-label">-</span></div>
+            <small id="adminFullText" class="q-label">問題を選択してください</small>
+        </div>
+
+        <div id="display">（ここに問題が流れます）</div>
 
         <div class="score-board">
-            <strong>📊 参加者戦績 (リアルタイム)</strong>
+            <strong>📊 リアルタイム戦績</strong>
             <div id="adminScoreList"></div>
         </div>
 
         <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
             <button style="background:#95a5a6; color:white; font-size:0.7rem;" onclick="resetScoresOnly()">0️⃣ スコアのみリセット</button>
-            <button style="background:#bdc3c7; color:white; font-size:0.7rem;" onclick="resetAllData()">⚠️ 全リセット</button>
+            <button style="background:#bdc3c7; color:white; font-size:0.7rem;" onclick="resetAllData()">⚠️ 履歴・スコア全リセット</button>
         </div>
     </div>
 
@@ -108,7 +113,7 @@
             <strong>➕ 自作問題追加</strong><br>
             <input type="text" id="customQ" placeholder="問題文..." style="width:90%; padding:5px; margin-top:5px;">
             <input type="text" id="customA" placeholder="答え..." style="width:90%; padding:5px; margin-top:5px;">
-            <button class="btn-primary" style="width:100%; margin-top:5px; font-size:0.8rem;" onclick="addCustomQuiz()">リストへ追加</button>
+            <button class="btn-primary" style="width:100%; margin-top:5px; font-size:0.8rem;" onclick="addCustomQuiz()">追加</button>
         </div>
         <div class="genre-selector">
             <button id="g-all" class="btn-genre active" onclick="changeGenre('all')">全件</button>
@@ -121,7 +126,7 @@
 </div>
 
 <div id="player-ui" class="container" style="display:none; text-align:center;">
-    <input type="text" id="playerName" placeholder="名前を入力" style="padding:15px; width:80%; font-size:1.2rem; margin-bottom:20px; border-radius:8px; border:2px solid var(--primary);">
+    <input type="text" id="playerName" placeholder="名前を入力" style="padding:15px; width:80%; font-size:1.2rem; margin-bottom:20px;">
     <div id="timer-display" style="font-size: 3rem; font-weight: bold; color: red; display:none;">10</div>
     <div id="lock-msg" style="color: red; font-weight: bold; display: none;">❌ 1問休み</div>
     <button id="remote-button" disabled onclick="pushButton()">PUSH!</button>
@@ -161,31 +166,20 @@
         if (!scores) return document.getElementById("adminScoreList").innerHTML = "参加者なし";
         let html = "";
         for (let name in scores) {
-            html += `<div class="score-row"><span>${name}</span><span><span class="score-ac">${scores[name].correct || 0} AC</span> / <span class="score-wa">${scores[name].wrong || 0} WA</span></span></div>`;
+            html += `<div class="score-row"><span>${name}</span><span><span style="color:green;">${scores[name].correct || 0} AC</span> / <span style="color:red;">${scores[name].wrong || 0} WA</span></span></div>`;
         }
         document.getElementById("adminScoreList").innerHTML = html;
-    }
-
-    function changeGenre(g) { 
-        currentGenre = g; 
-        document.querySelectorAll('.btn-genre').forEach(b => b.classList.remove('active')); 
-        document.getElementById('g-' + g).classList.add('active'); 
-        refreshCandidateList(); 
-    }
-
-    function refreshCandidateList() {
-        let pool = currentGenre === 'all' ? Object.values(masterData).flat() : masterData[currentGenre];
-        let available = pool.filter(item => !usedQuizzes.has(item.q)).sort(() => Math.random() - 0.5);
-        document.getElementById("quizList").innerHTML = available.slice(0, 30).map(item => `
-            <div class="quiz-item" style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;" onclick="applyQuiz({q:'${item.q.replace(/'/g,"\\'")}', a:'${item.a.replace(/'/g,"\\'")}'})">
-                <span style="font-size:0.8rem;">${item.q}</span><span style="color:red; margin-left:10px;">答: ${item.a}</span>
-            </div>`).join("");
     }
 
     function applyQuiz(quizObj) {
         stopQuiz(); currentQuiz = quizObj; revealedIndexes = [];
         document.getElementById("hintModeSwitch").checked = false; toggleHintMode(false);
         db.ref().update({ status: "idle", winner: "", countdown: 0, lockedPlayers: null });
+        
+        // 管理者用プレビュー更新
+        document.getElementById("adminAnswer").innerText = currentQuiz.a;
+        document.getElementById("adminFullText").innerText = currentQuiz.q;
+
         if (subWindow) subWindow.resetForNext(); syncDisplay();
     }
 
@@ -208,24 +202,6 @@
     }
     function stopQuiz() { isRunning = false; clearInterval(timer); }
 
-    function toggleHintMode(isOn) {
-        ["h-symbol", "h-hiragana", "h-katakana", "h-kanji"].forEach(id => document.getElementById(id).disabled = !isOn);
-        document.getElementById("startBtn").disabled = isOn;
-        if (isOn) { stopQuiz(); db.ref("status").set("active"); } // ヒント中でも解答可能
-    }
-
-    function revealByType(type) {
-        Array.from(currentQuiz.q).forEach((char, i) => {
-            let reveal = false;
-            if (type === 'symbol' && char.match(/[^\w\s\u3040-\u30ff\u4e00-\u9faf]/)) reveal = true;
-            if (type === 'hiragana' && char.match(/[\u3040-\u309f]/)) reveal = true;
-            if (type === 'katakana' && char.match(/[\u30a0-\u30ff]/)) reveal = true;
-            if (type === 'kanji' && char.match(/[\u4e00-\u9faf]/)) reveal = true;
-            if (reveal && !revealedIndexes.includes(i)) revealedIndexes.push(i);
-        });
-        syncDisplay();
-    }
-
     function manualJudge(isCorrect) {
         if (!currentWinner) return;
         clearInterval(limitTimer);
@@ -247,72 +223,48 @@
         }
     }
 
+    function changeGenre(g) { currentGenre = g; document.querySelectorAll('.btn-genre').forEach(b => b.classList.remove('active')); document.getElementById('g-' + g).classList.add('active'); refreshCandidateList(); }
+    function refreshCandidateList() {
+        let pool = currentGenre === 'all' ? Object.values(masterData).flat() : masterData[currentGenre];
+        let available = pool.filter(item => !usedQuizzes.has(item.q)).sort(() => Math.random() - 0.5);
+        document.getElementById("quizList").innerHTML = available.slice(0, 30).map(item => `<div class="quiz-item" style="padding:6px; border-bottom:1px solid #eee; cursor:pointer;" onclick="applyQuiz({q:'${item.q.replace(/'/g,"\\'")}', a:'${item.a.replace(/'/g,"\\'")}'})"><span style="font-size:0.8rem;">${item.q}</span></div>`).join("");
+    }
+
+    function toggleHintMode(isOn) { ["h-symbol", "h-hiragana", "h-katakana", "h-kanji"].forEach(id => document.getElementById(id).disabled = !isOn); document.getElementById("startBtn").disabled = isOn; if (isOn) { stopQuiz(); db.ref("status").set("active"); } }
+    function revealByType(type) {
+        Array.from(currentQuiz.q).forEach((char, i) => {
+            let reveal = false;
+            if (type === 'symbol' && char.match(/[^\w\s\u3040-\u30ff\u4e00-\u9faf]/)) reveal = true;
+            if (type === 'hiragana' && char.match(/[\u3040-\u309f]/)) reveal = true;
+            if (type === 'katakana' && char.match(/[\u30a0-\u30ff]/)) reveal = true;
+            if (type === 'kanji' && char.match(/[\u4e00-\u9faf]/)) reveal = true;
+            if (reveal && !revealedIndexes.includes(i)) revealedIndexes.push(i);
+        });
+        syncDisplay();
+    }
+
     function openSubWindow() {
         subWindow = window.open("", "QuizSub", "width=1200,height=800");
-        subWindow.document.write(`<html><head><style>
-            body { background:#000; color:#fff; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; font-family: "Meiryo", monospace; margin:0; overflow:hidden; }
-            #text { font-size:4rem; width:90%; line-height:1.6; display:flex; flex-wrap:wrap; justify-content:center; }
-            #text span { display:inline-block; min-width:1.1em; text-align:center; }
-            #text span.hidden { visibility:hidden; }
-            .banner { position:fixed; top:0; left:0; width:100%; background:#c0392b; color:#f1c40f; font-size:4rem; text-align:center; padding:20px; z-index:99; }
-            .ans-box { font-size: 6rem; border: 10px solid #f1c40f; padding: 20px; border-radius: 20px; margin-top: 30px; background: rgba(255,255,255,0.1); }
-        </style></head><body>
-            <div id="winner-display" style="display:none;"></div>
-            <div id="text"></div>
-            <div id="res-container" style="display:none; text-align:center;">
-                <div id="res-msg" style="font-size:3rem;"></div>
-                <div id="res-ans" class="ans-box"></div>
-            </div>
-            <script>
-                window.showWinner=(n)=>{const el=document.getElementById('winner-display'); el.innerHTML='<div class="banner">'+n+' 解答中...</div>'; el.style.display='block';};
-                window.showResult=(m,c,a)=>{document.getElementById('winner-display').style.display='none'; document.getElementById('res-msg').innerText=m; document.getElementById('res-msg').style.color=c; document.getElementById('res-ans').innerText=a; document.getElementById('res-container').style.display='block';};
-                window.showFlash=(m,c)=>{const div=document.createElement("div"); div.innerText=m; div.style.cssText="position:fixed; top:40%; left:50%; transform:translateX(-50%); font-size:10rem; color:"+c+"; font-weight:bold; z-index:100;"; document.body.appendChild(div); setTimeout(()=>div.remove(), 2000);};
-                window.resetForNext=()=>{document.getElementById('text').style.display='flex'; document.getElementById('res-container').style.display='none'; document.getElementById('winner-display').style.display='none';};
-            <\/script></body></html>`);
+        subWindow.document.write(`<html><head><style>body { background:#000; color:#fff; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; font-family: "Meiryo", sans-serif; margin:0; overflow:hidden; } #text { font-size:4rem; width:90%; line-height:1.6; display:flex; flex-wrap:wrap; justify-content:center; } #text span { display:inline-block; min-width:1.1em; text-align:center; } #text span.hidden { visibility:hidden; } .banner { position:fixed; top:0; left:0; width:100%; background:#c0392b; color:#f1c40f; font-size:4rem; text-align:center; padding:20px; z-index:99; } .ans-box { font-size: 6rem; border: 10px solid #f1c40f; padding: 20px; border-radius: 20px; margin-top: 30px; }</style></head><body><div id="winner-display" style="display:none;"></div><div id="text"></div><div id="res-container" style="display:none; text-align:center;"><div id="res-msg" style="font-size:3rem;"></div><div id="res-ans" class="ans-box"></div></div><script>window.showWinner=(n)=>{const el=document.getElementById('winner-display'); el.innerHTML='<div class="banner">'+n+' 解答中...</div>'; el.style.display='block';}; window.showResult=(m,c,a)=>{document.getElementById('winner-display').style.display='none'; document.getElementById('res-msg').innerText=m; document.getElementById('res-msg').style.color=c; document.getElementById('res-ans').innerText=a; document.getElementById('res-container').style.display='block';}; window.showFlash=(m,c)=>{const div=document.createElement("div"); div.innerText=m; div.style.cssText="position:fixed; top:40%; left:50%; transform:translateX(-50%); font-size:10rem; color:"+c+"; font-weight:bold; z-index:100;"; document.body.appendChild(div); setTimeout(()=>div.remove(), 2000);}; window.resetForNext=()=>{document.getElementById('text').style.display='flex'; document.getElementById('res-container').style.display='none'; document.getElementById('winner-display').style.display='none';};<\/script></body></html>`);
     }
 
-    function addCustomQuiz() { 
-        const q = document.getElementById("customQ").value.trim(), a = document.getElementById("customA").value.trim(); 
-        if (!q || !a) return; masterData.custom.unshift({ q, a }); 
-        document.getElementById("customQ").value = ""; document.getElementById("customA").value = ""; 
-        refreshCandidateList();
-    }
-
+    function addCustomQuiz() { const q = document.getElementById("customQ").value.trim(), a = document.getElementById("customA").value.trim(); if (!q || !a) return; masterData.custom.unshift({ q, a }); refreshCandidateList(); }
     function resetScoresOnly() { if (confirm("スコアをリセットしますか？")) { db.ref("scores").remove(); db.ref("lockedPlayers").remove(); } }
-    function resetAllData() { if (confirm("履歴とスコアを全消去しますか？")) { localStorage.removeItem('quiz_history'); usedQuizzes.clear(); db.ref().set({ status: "idle" }); location.reload(); } }
+    function resetAllData() { if (confirm("全データを消去しますか？")) { localStorage.removeItem('quiz_history'); usedQuizzes.clear(); db.ref().set({ status: "idle" }); location.reload(); } }
     function updateSpeed(v) { intervalTime = parseInt(v); }
-
     function setupPlayer() {
         const nameInput = document.getElementById("playerName"), btn = document.getElementById("remote-button"), lockMsg = document.getElementById("lock-msg");
         db.ref().on("value", snap => {
             const data = snap.val() || {}, name = nameInput.value.trim();
             const isLocked = data.lockedPlayers && data.lockedPlayers[name];
-            if (data.status === "active") {
-                btn.style.display = "block";
-                if (isLocked) { btn.disabled = true; btn.classList.remove("active"); lockMsg.style.display = "block"; }
-                else if (name !== "") { btn.disabled = false; btn.classList.add("active"); lockMsg.style.display = "none"; }
-            } else if (data.status === "pushed") {
-                if (data.winner === name) { btn.style.display = "none"; document.getElementById("timer-display").style.display = "block"; }
-                else { btn.disabled = true; btn.classList.remove("active"); }
-            } else {
-                btn.disabled = true; btn.classList.remove("active"); btn.style.display = "block"; lockMsg.style.display = (isLocked ? "block" : "none");
-                document.getElementById("timer-display").style.display = "none";
-            }
+            if (data.status === "active") { btn.style.display = "block"; if (isLocked) { btn.disabled = true; lockMsg.style.display = "block"; } else if (name !== "") { btn.disabled = false; btn.classList.add("active"); lockMsg.style.display = "none"; } }
+            else if (data.status === "pushed") { if (data.winner === name) { btn.style.display = "none"; document.getElementById("timer-display").style.display = "block"; } else { btn.disabled = true; } }
+            else { btn.disabled = true; btn.style.display = "block"; document.getElementById("timer-display").style.display = "none"; }
         });
         db.ref("countdown").on("value", snap => { document.getElementById("timer-display").innerText = snap.val(); });
     }
-
-    function pushButton() { 
-        const n = document.getElementById("playerName").value.trim(); 
-        if(!n) return alert("名前を入力！"); 
-        db.ref("status").transaction(curr => { if(curr==="active"){ db.ref("winner").set(n); return "pushed"; } }); 
-    }
-
-    function startLimitCounter() { 
-        let c = 10; db.ref("countdown").set(c); 
-        clearInterval(limitTimer); 
-        limitTimer = setInterval(() => { c--; db.ref("countdown").set(c); if(c<0){ clearInterval(limitTimer); manualJudge(false); } }, 1000); 
-    }
+    function pushButton() { const n = document.getElementById("playerName").value.trim(); if(!n) return alert("名前を入力！"); db.ref("status").transaction(curr => { if(curr==="active"){ db.ref("winner").set(n); return "pushed"; } }); }
+    function startLimitCounter() { let c = 10; db.ref("countdown").set(c); clearInterval(limitTimer); limitTimer = setInterval(() => { c--; db.ref("countdown").set(c); if(c<0){ clearInterval(limitTimer); manualJudge(false); } }, 1000); }
 </script>
 </body>
 </html>
