@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Flow Optimized</title>
+    <title>QuizConsole Pro - Fixed Board</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -295,7 +295,6 @@
                 db.ref('wrongList/' + p).set(true);
                 if(subWindow) subWindow.showBanner(p + " ×", "#e74c3c");
             }
-            // 判定後、解答権を解放して次の人が押せるようにする
             db.ref('winner').set(""); 
             db.ref('status').set('active'); 
         });
@@ -318,16 +317,13 @@
             document.getElementById('p-score').innerText = (d.scores && d.scores[name]) || 0;
             document.getElementById('p-wait').innerText = w > 0 ? "あと " + w + " 回休み" : "";
             
-            if(d.mode === 'all_board' && d.status === 'all_writing') {
+            // 入力UI表示判定の修正：winnerが自分の時、または全員ボードモードで書き込み中ステータスの時
+            if((d.mode === 'all_board' && d.status === 'all_writing') || (d.winner === name && name !== "")) {
                 bUI.style.display = 'block'; btn.style.display = 'none';
-                sArea.innerHTML = '<div style="background:var(--gold);padding:10px;border-radius:8px;font-weight:bold;">🖋 全員解答！</div>';
-            } else if(d.winner === name && name !== "") {
-                if(d.mode === 'board') { 
-                    bUI.style.display = 'block'; btn.style.display = 'none'; 
-                    sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;font-weight:bold;">✨ 解答入力中... ✨</div>';
-                } else { 
-                    bUI.style.display = 'none'; btn.style.display = 'inline-block'; 
-                    sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;font-weight:bold;">🎤 口頭で解答！</div>';
+                if(d.mode === 'all_board') {
+                    sArea.innerHTML = '<div style="background:var(--gold);padding:10px;border-radius:8px;font-weight:bold;">🖋 全員解答！</div>';
+                } else {
+                    sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;font-weight:bold;">✨ ボードに書き込んで！ ✨</div>';
                 }
             } else { 
                 bUI.style.display = 'none'; btn.style.display = 'inline-block'; 
@@ -339,13 +335,17 @@
 
     function sendBoardAns() {
         const name = document.getElementById('p-name').value.trim(), text = document.getElementById('board-text').value.trim();
-        if(!text) return; db.ref('boardAnswers/' + name).set(text); 
-        db.ref().once('value', snap => {
-            if(snap.val().mode !== 'all_board') {
-                db.ref('winner').set(""); db.ref('status').set('active'); 
-            }
+        if(!text) return; 
+        db.ref('boardAnswers/' + name).set(text).then(() => {
+            db.ref().once('value', snap => {
+                const d = snap.val();
+                if(d.mode !== 'all_board') {
+                    db.ref('winner').set(""); 
+                    db.ref('status').set('active'); 
+                }
+            });
+            document.getElementById('board-text').value = "";
         });
-        document.getElementById('board-text').value = "";
     }
     
     function pushBtn() {
