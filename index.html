@@ -229,7 +229,27 @@
     }
     function resumeQuiz() { db.ref('status').set('active'); if(revealed.length < currentQuiz.q.length) startQuiz(); }
     function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
-    function resetAll() { if (confirm("完全リセット？")) { history = []; db.ref().set({ status: "idle", mode: "push", rankVisible: true, isGameSet: false, usedSet: [] }); } }
+    function resetAll() {
+  if (confirm("全ての状態をリセットしますか？")) {
+
+    // ★ 管理画面側の履歴を完全初期化
+    history = [];
+    usedSet.clear();          // ← これが一番重要
+
+    // ★ Firebase側も初期化
+    db.ref().set({
+      status: "idle",
+      mode: "push",
+      rankVisible: true,
+      isGameSet: false,
+      usedSet: []
+    });
+
+    // ★ 問題リストを即再描画
+    renderList();
+  }
+}
+
     
     // ★名前変更不可（inputを完全に無効化）
     function lockName() { 
@@ -325,3 +345,4 @@
 </script>
 </body>
 </html>
+
