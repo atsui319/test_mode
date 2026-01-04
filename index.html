@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Stable Build</title>
+    <title>QuizConsole Pro - Board Conceal</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -249,7 +249,6 @@
         sync(true); renderList();
     }
 
-    // 自動読み上げ開始
     function startQuiz() {
         db.ref('status').set('active');
         const speed = parseInt(document.getElementById('readSpeed').value);
@@ -297,20 +296,13 @@
 
     function removeBoard(p) { db.ref('boardAnswers/' + p).remove(); db.ref('wrongList/' + p).remove(); db.ref('correctList/' + p).remove(); }
     
-    // 文字種公開：早押しを有効(active)にする修正
     function openType(t) { 
-        play('type'); 
-        db.ref('status').set('active'); 
+        play('type'); db.ref('status').set('active'); 
         const m = { kanji:/[\u4E00-\u9FFF]/, hira:/[\u3040-\u309F]/, kana:/[\u30A0-\u30FF]/, num:/[0-9０-９]/, alp:/[a-zＡ-Ｚ]/i, sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/ }; 
         Array.from(currentQuiz.q).forEach((c,i) => { if(m[t] && m[t].test(c)) if(!revealed.includes(i)) revealed.push(i); }); 
         sync(); 
     }
-    function openCircleOnly() { 
-        db.ref('status').set('active'); 
-        Array.from(currentQuiz.q).forEach((c,i) => { if(c === '〇' || c === '○') if(!revealed.includes(i)) revealed.push(i); }); 
-        sync(); 
-    }
-
+    function openCircleOnly() { db.ref('status').set('active'); Array.from(currentQuiz.q).forEach((c,i) => { if(c === '〇' || c === '○') if(!revealed.includes(i)) revealed.push(i); }); sync(); }
     function resumeQuiz() { db.ref('status').set('active'); startQuiz(); }
     function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
     function openAll() { db.ref('status').set('active'); revealed = Array.from(currentQuiz.q).map((_,i)=>i); sync(); }
@@ -374,18 +366,7 @@
         </style></head><body>
             <div id="main-container"><div id="banner"></div><div id="text"></div><div id="ans"></div><div id="board-area"></div></div>
             <div id="rank-side"><h2 style="color:#3498db;border-bottom:2px solid #555;">RANKING</h2><div id="rank-list"></div></div>
-            <div id="result-screen">
-                <h1 style="text-align:center; font-size:4rem;">GAME SET</h1>
-                <div class="res-card">
-                    <h2 style="color:#f1c40f; border-bottom:3px solid #f1c40f;">🏆 FINAL RANKING</h2>
-                    <div id="final-rank-list" style="font-size:2rem;"></div>
-                </div>
-                <div class="res-card">
-                    <h2 style="color:#fff; border-bottom:3px solid #fff;">📚 QUIZ LOG</h2>
-                    <div id="final-history-list"></div>
-                </div>
-                <button onclick="document.getElementById('result-screen').style.display='none'" style="display:block; margin:50px auto; padding:15px 40px; font-size:1.5rem; cursor:pointer;">閉じる</button>
-            </div>
+            <div id="result-screen"><h1 style="text-align:center; font-size:4rem;">GAME SET</h1><div id="final-rank-list"></div><div id="final-history-list"></div></div>
             <script>
                 const sounds = { push: new Audio('buzzer.mp3'), correct: new Audio('correct.mp3'), wrong: new Audio('wrong.mp3'), type: new Audio('type.mp3') };
                 window.play = (s) => { if(sounds[s]) { sounds[s].pause(); sounds[s].currentTime = 0; sounds[s].play().catch(()=>{}); } };
@@ -405,7 +386,9 @@
                     const area = document.getElementById('board-area');
                     if(d.mode === 'board' && d.boardAnswers) {
                         area.innerHTML = Object.entries(d.boardAnswers).map(([n, ans]) => {
-                            const isWrong = d.wrongList && d.wrongList[n], isCorrect = d.correctList && d.correctList[n], show = d.finalReveal || isWrong || isCorrect;
+                            const isWrong = d.wrongList && d.wrongList[n], isCorrect = d.correctList && d.correctList[n];
+                            // 修正：最終公開時か誤答時のみ答えを表示。正解判定だけなら「？？？」のまま。
+                            const show = d.finalReveal || isWrong;
                             return '<div class="board-box" style="border:5px solid '+(isWrong?'#e74c3c':(isCorrect?'#2ecc71':'#555'))+'">'+
                                    '<div style="font-size:1.2rem;color:#aaa;">'+n+'</div><div style="font-size:2.8rem;color:#f1c40f;font-weight:bold;">'+(show ? ans : "？？？")+'</div></div>';
                         }).join('');
@@ -417,4 +400,3 @@
 </script>
 </body>
 </html>
-
