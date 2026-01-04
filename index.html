@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Dynamic Score Edition</title>
+    <title>QuizConsole Pro - Hybrid Ultimate Edition</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -22,9 +22,10 @@
         .quiz-item { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 0.85rem; }
         .quiz-item.used { opacity: 0.4; background: #eee; }
         .score-input { width: 45px; text-align: center; font-weight: bold; }
-        #remote-button { width: 280px; height: 280px; border-radius: 50%; border: 15px solid #bdc3c7; background: #ecf0f1; font-size: 3.5rem; margin: 20px auto; display: none; cursor: pointer; }
+        #remote-button { width: 280px; height: 280px; border-radius: 50%; border: 15px solid #bdc3c7; background: #ecf0f1; font-size: 3.5rem; margin: 20px auto; display: none; cursor: pointer; transition: 0.2s; }
         #remote-button.active { border-color: #e74c3c; background: #ff4757; color: white; box-shadow: 0 10px 0 #c0392b; }
         .toggle-btn { background: #555; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .board-answer { background: #fff; border: 1px solid #ccc; padding: 5px; margin: 5px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
@@ -45,7 +46,17 @@
         </div>
 
         <div class="judge-panel">
+            <div style="margin-bottom:10px;">
+                <select id="gameMode" onchange="db.ref('mode').set(this.value)" style="padding:5px; font-weight:bold;">
+                    <option value="push">⚡ 早押しモード</option>
+                    <option value="board">📝 ボードモード</option>
+                </select>
+            </div>
+            
             <div id="activePlayer" style="font-size:2.5rem; font-weight:bold; color:var(--danger);">---</div>
+            
+            <div id="boardResults" style="text-align:left; max-height:150px; overflow-y:auto; margin:10px 0; display:none; background:#eee; padding:10px; border-radius:8px;"></div>
+
             <div style="display:flex; gap:10px; margin:15px 0;">
                 <button style="flex:1; height:70px; background:var(--success); color:white; font-size:1.8rem; border:none; border-radius:8px; cursor:pointer;" onclick="manualJudge(true)">⭕ 正解</button>
                 <button style="flex:1; height:70px; background:var(--danger); color:white; font-size:1.8rem; border:none; border-radius:8px; cursor:pointer;" onclick="manualJudge(false)">❌ 誤答</button>
@@ -102,12 +113,6 @@
         </div>
         <input type="text" id="quizSearch" class="search-box" placeholder="🔍 検索..." oninput="renderList()">
         <div id="quizList" style="max-height: 400px; overflow-y: auto; border: 1px solid #eee;"></div>
-        <div class="panel" style="margin-top:10px;">
-            <small>手動追加</small><br>
-            <input type="text" id="customQ" placeholder="問題文" style="width:80%"><br>
-            <input type="text" id="customA" placeholder="答え" style="width:80%">
-            <button onclick="addCustomQuiz()">追加</button>
-        </div>
     </div>
 </div>
 
@@ -116,6 +121,12 @@
     <div style="font-size:2rem; color:var(--danger); font-weight:bold;">Score: <span id="p-score">0</span></div>
     <div id="wait-status" style="color:red; font-size:1rem; font-weight:bold; margin-top:10px;"></div>
     <input type="text" id="playerName" placeholder="名前を入力" style="padding:15px; font-size:1.2rem; margin:20px; width:80%; text-align:center;">
+    
+    <div id="player-board-input" style="display:none; margin:20px;">
+        <input type="text" id="boardText" placeholder="答えを入力" style="padding:15px; font-size:1.5rem; width:80%;"><br><br>
+        <button style="padding:15px 40px; background:var(--success); color:white; border:none; border-radius:8px;" onclick="sendBoardAnswer()">回答送信</button>
+    </div>
+    
     <button id="remote-button" disabled onclick="pushButton()">PUSH!</button>
 </div>
 
@@ -137,13 +148,14 @@
     let usedQuizzes = new Set(), currentQuiz = { q: "", a: "" }, revealedIndexes = [];
     let history = []; 
     let isRunning = false, timer = null, subWindow = null, currentWinner = "", lastStatus = "idle", currentGenre = 'all', intervalTime = 150;
-    let isSubScoreVisible = true, currentScores = {}, quizCorrectCount = 0;
+    let isSubScoreVisible = true, currentScores = {}, quizCorrectCount = 0, currentMode = "push";
 
     async function initRole(role) {
         document.getElementById("role-ui").style.display = "none";
         document.getElementById(role + "-ui").style.display = (role === 'admin' ? 'flex' : 'block');
         if (role === 'admin') {
             db.ref('limit').set(parseInt(document.getElementById("maxCorrect").value));
+            db.ref('mode').set("push");
             for (let [key, url] of Object.entries(URLS)) {
                 try {
                     const res = await fetch(url + "&t=" + Date.now());
@@ -196,7 +208,7 @@
         usedQuizzes.add(obj.q);
         history.push(obj);
         reduceWaits();
-        db.ref().update({ status: "idle", winner: "", correctList: null, correctCount: 0 });
+        db.ref().update({ status: "idle", winner: "", correctList: null, correctCount: 0, boardAnswers: null });
         document.getElementById("adminAnswer").innerText = obj.a;
         document.getElementById("adminFullText").innerText = obj.q;
         if (subWindow && !subWindow.closed) subWindow.resetForNext();
@@ -233,24 +245,25 @@
 
     function gameSet() { if(confirm("ゲームセットとして視聴者画面に最終結果を表示しますか？")) { stopQuiz(); if(subWindow) subWindow.showResultView(currentScores, history); } }
 
-    function manualJudge(isCorrect) {
-        if(!currentWinner) return;
+    function manualJudge(isCorrect, targetPlayer = null) {
+        const player = targetPlayer || currentWinner;
+        if(!player) return;
+        
         const pts1 = parseInt(document.getElementById("plusPts1").value);
         const ptsRest = parseInt(document.getElementById("plusPtsRest").value);
         const mPts = parseInt(document.getElementById("minusPts").value);
         const waitCount = parseInt(document.getElementById("missWait").value);
         const maxLimit = parseInt(document.getElementById("maxCorrect").value);
         
-        // 正解者が何人目かによって加算ポイントを変更
         const addPts = (quizCorrectCount === 0) ? pts1 : ptsRest;
 
-        db.ref("scores/" + currentWinner).transaction(s => (s || 0) + (isCorrect ? addPts : mPts));
+        db.ref("scores/" + player).transaction(s => (s || 0) + (isCorrect ? addPts : mPts));
         
         if (isCorrect) {
             quizCorrectCount++;
             db.ref("correctCount").set(quizCorrectCount);
-            db.ref("correctList/" + currentWinner).set(true); 
-            if(subWindow) subWindow.showResult(currentWinner+" 正解！ ("+addPts+"pt)","#2ecc71",'correct');
+            db.ref("correctList/" + player).set(true); 
+            if(subWindow) subWindow.showResult(player+" 正解！ ("+addPts+"pt)","#2ecc71",'correct');
 
             if(quizCorrectCount >= maxLimit) {
                 db.ref().update({status:"idle",winner:""}); 
@@ -258,13 +271,13 @@
                 setTimeout(() => { if(subWindow) subWindow.resetForNext(); }, 2000);
             } else {
                 db.ref().update({winner:"", status:"active"});
-                startQuiz();
+                if(currentMode === "push") startQuiz();
             }
         } else {
             if(subWindow) { subWindow.showFlash("❌","#e74c3c",'wrong'); }
-            db.ref("waits/"+currentWinner).set(waitCount);
+            db.ref("waits/"+player).set(waitCount);
             db.ref().update({winner:"", status:"active"});
-            startQuiz();
+            if(currentMode === "push") startQuiz();
         }
     }
 
@@ -278,13 +291,31 @@
     }
 
     function openAllCharacters() { revealedIndexes = Array.from(currentQuiz.q).map((_,i)=>i); syncDisplay(); db.ref("status").set("active"); }
-    function addCustomQuiz() { const q = document.getElementById("customQ").value, a = document.getElementById("customA").value; if(q && a) { masterData.custom.unshift({q, a}); changeGenre('custom'); } }
     function resetAllScores() { if(confirm("初期化しますか？")){ db.ref().remove(); location.reload(); } }
 
     function setupAdminFirebase() {
         db.ref().on("value", snap => {
-            const d = snap.val() || {}; currentWinner = d.winner || "";
+            const d = snap.val() || {}; 
+            currentWinner = d.winner || "";
+            currentMode = d.mode || "push";
             document.getElementById("activePlayer").innerText = currentWinner || "---";
+            
+            // モード表示切替
+            const boardDiv = document.getElementById("boardResults");
+            if(currentMode === "board") {
+                boardDiv.style.display = "block";
+                if(d.boardAnswers) {
+                    boardDiv.innerHTML = Object.entries(d.boardAnswers).map(([name, ans]) => `
+                        <div class="board-answer">
+                            <span><strong>${name}:</strong> ${ans}</span>
+                            <div>
+                                <button onclick="manualJudge(true, '${name}')">〇</button>
+                                <button onclick="manualJudge(false, '${name}')">×</button>
+                            </div>
+                        </div>`).join("");
+                } else { boardDiv.innerHTML = "回答待機中..."; }
+            } else { boardDiv.style.display = "none"; }
+
             if(d.status === "pushed" && lastStatus !== "pushed") { stopQuiz(); if(subWindow) subWindow.showWinner(currentWinner); }
             lastStatus = d.status;
         });
@@ -340,7 +371,7 @@
     }
 
     function setupPlayer() {
-        const btn = document.getElementById("remote-button"), ni = document.getElementById("playerName");
+        const btn = document.getElementById("remote-button"), ni = document.getElementById("playerName"), bi = document.getElementById("player-board-input");
         db.ref().on("value", snap => {
             const d = snap.val() || {}, n = ni.value.trim();
             const w = (d.waits && d.waits[n]) || 0;
@@ -353,15 +384,29 @@
                 document.getElementById("wait-status").innerText = w > 0 ? "⚠️ あと " + w + " 回休み" : (hasCorrected ? "✅ 正解済み" : ""); 
             }
             
+            // ボード回答入力フォームの表示制御
+            if(d.mode === "board" && d.status === "pushed" && d.winner === n) { bi.style.display = "block"; btn.style.display = "none"; }
+            else { bi.style.display = "none"; }
+
             if (d.status === "active" && n && w === 0 && d.winner !== n && !hasCorrected && !limitReached) { 
                 btn.style.display="block"; btn.disabled=false; btn.classList.add("active"); 
             } else if (d.status === "pushed" && d.winner === n) { 
-                btn.style.display="none"; 
+                if(d.mode === "push") btn.style.display="none"; 
             } else { 
                 btn.disabled=true; btn.classList.remove("active"); btn.style.display="block"; 
             }
         });
     }
+
+    function sendBoardAnswer() {
+        const n = document.getElementById("playerName").value.trim();
+        const text = document.getElementById("boardText").value.trim();
+        if(!text) return;
+        db.ref("boardAnswers/" + n).set(text);
+        db.ref().update({ status: "active", winner: "" });
+        document.getElementById("boardText").value = "";
+    }
+
     function pushButton() { const n = document.getElementById("playerName").value.trim(); if(!n) return; db.ref("status").transaction(s => { if(s==="active"){ db.ref("winner").set(n); return "pushed"; } }); }
 </script>
 </body>
