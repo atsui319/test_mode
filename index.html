@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Speed Control</title>
+    <title>QuizConsole Pro - Circle Fix</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -18,17 +18,17 @@
         .sidebar { width: 380px; background: white; padding: 15px; border-radius: 12px; height: 90vh; overflow-y: auto; }
         .btn-genre { padding: 8px; font-size: 0.75rem; cursor: pointer; flex: 1; border: 1px solid #ccc; background: #fff; }
         .btn-genre.active { background: var(--primary); color: white; }
-        
         .board-ans-item { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; margin-top: 5px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
         .mgr-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
         .mgr-ctrl { display: flex; gap: 5px; align-items: center; }
         .mgr-ctrl button { padding: 2px 10px; cursor: pointer; border: 1px solid #ccc; background: #fff; }
         .val-box { min-width: 25px; text-align: center; font-weight: bold; }
-
         .type-btns button { padding: 8px 10px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; font-weight: bold; font-size: 0.85rem; }
         #remote-button { width: 220px; height: 220px; border-radius: 50%; font-size: 2rem; font-weight: bold; cursor: pointer; border: 10px solid #eee; }
         #remote-button:not(:disabled) { background: var(--danger); color: white; border-color: #c0392b; }
+        #remote-button:disabled { background: #ccc; color: #888; cursor: not-allowed; }
         .speed-ctrl { background: #eee; padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-top: 10px; border: 1px solid #ccc; }
+        .turn-notice { background: #fff3cd; padding: 15px; border-radius: 8px; border: 2px solid #f39c12; margin-bottom: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -74,7 +74,7 @@
                 <div class="type-btns" style="margin-bottom:10px; display:flex; flex-wrap:wrap; gap:5px; background:#e9ecef; padding:10px; border-radius:8px;">
                     <button onclick="openType('kanji')">漢字</button><button onclick="openType('hira')">ひら</button><button onclick="openType('kana')">カナ</button>
                     <button onclick="openType('num')">数字</button><button onclick="openType('alp')">英字</button><button onclick="openType('sym')">記号</button>
-                    <button onclick="openAnsChars()" style="background:#f39c12; color:white; border:none;">〇を公開</button>
+                    <button onclick="openCircleOnly()" style="background:#f39c12; color:white; border:none;">〇のみ公開</button>
                     <button onclick="openAll()" style="background:#555; color:white; border:none; margin-left:auto;">全表示</button>
                 </div>
                 <div id="display"></div>
@@ -107,9 +107,10 @@
         <div id="p-wait" style="color:var(--danger); font-weight:bold; height:1.5em; margin:10px;"></div>
         <div id="player-status-area"></div>
         <input type="text" id="p-name" placeholder="名前を入力" style="width:85%; padding:15px; font-size:1.3rem; text-align:center; border-radius:10px; border:3px solid #ddd; margin-bottom:20px;">
+        
         <div id="board-input-ui" style="display:none; margin-bottom:20px;">
-            <input type="text" id="board-text" placeholder="ここに答えを入力" style="width:85%; padding:15px; font-size:1.8rem; border:3px solid var(--success); border-radius:10px;"><br><br>
-            <button onclick="sendBoardAns()" style="padding:15px 40px; background:var(--success); color:white; border:none; border-radius:10px; font-weight:bold;">回答を送信</button>
+            <input type="text" id="board-text" placeholder="答えを入力" style="width:85%; padding:15px; font-size:1.8rem; border:3px solid var(--success); border-radius:10px;"><br><br>
+            <button onclick="sendBoardAns()" style="padding:15px 40px; background:var(--success); color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">回答を送信</button>
         </div>
         <button id="remote-button" onclick="pushBtn()">PUSH!</button>
     </div>
@@ -166,10 +167,9 @@
             const bArea = document.getElementById('boardResults');
             if(d.mode === 'board' && d.boardAnswers) {
                 bArea.style.display = 'block';
-                bArea.innerHTML = Object.entries(d.boardAnswers).map(([n, ans]) => `<div class="board-ans-item"><span><strong>${n}:</strong> ${ans}</span><div class="judge-btns-mini"><button style="background:var(--success);color:white;padding:6px 10px;border:none;border-radius:4px;" onclick="judge(true, '${n}')">〇</button><button style="background:var(--danger);color:white;padding:6px 10px;border:none;border-radius:4px;" onclick="judge(false, '${n}')">×</button><button style="background:#7f8c8d;color:white;padding:6px 10px;border:none;border-radius:4px;" onclick="removeBoard('${n}')">消去</button></div></div>`).join('');
+                bArea.innerHTML = Object.entries(d.boardAnswers).map(([n, ans]) => `<div class="board-ans-item"><span><strong>${n}:</strong> ${ans}</span><div class="judge-btns-mini"><button style="background:var(--success);color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;" onclick="judge(true, '${n}')">〇</button><button style="background:var(--danger);color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;" onclick="judge(false, '${n}')">×</button><button style="background:#7f8c8d;color:white;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;" onclick="removeBoard('${n}')">消去</button></div></div>`).join('');
             } else { bArea.style.display = 'none'; }
             if(d.status === "pushed") { clearInterval(timer); play('push'); }
-            lastStatus = d.status;
             const scores = d.scores || {}, waits = d.waits || {};
             const sortedNames = Object.keys(scores).sort((a,b) => scores[b] - scores[a]);
             document.getElementById('full-mgr-list').innerHTML = sortedNames.map(n => `
@@ -265,11 +265,18 @@
         const m = { kanji:/[\u4E00-\u9FFF]/, hira:/[\u3040-\u309F]/, kana:/[\u30A0-\u30FF]/, num:/[0-9０-９]/, alp:/[a-zＡ-Ｚ]/i, sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/ };
         Array.from(currentQuiz.q).forEach((c,i) => { if(m[t] && m[t].test(c)) if(!revealed.includes(i)) revealed.push(i); }); sync();
     }
-    function openAnsChars() {
+    
+    // ロジック調整：問題文にある「〇」と「○」のみを公開
+    function openCircleOnly() {
         db.ref('status').set('active'); play('type');
-        const ansSet = new Set(Array.from(currentQuiz.a));
-        Array.from(currentQuiz.q).forEach((c,i) => { if(ansSet.has(c) || c === '〇' || c === '○') { if(!revealed.includes(i)) revealed.push(i); } }); sync();
+        Array.from(currentQuiz.q).forEach((c,i) => { 
+            if(c === '〇' || c === '○') { 
+                if(!revealed.includes(i)) revealed.push(i); 
+            } 
+        }); 
+        sync();
     }
+
     function resumeQuiz() { db.ref('status').set('active'); startQuiz(); }
     function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
     function openAll() { db.ref('status').set('active'); revealed = Array.from(currentQuiz.q).map((_,i)=>i); sync(); }
@@ -283,15 +290,16 @@
             document.getElementById('p-score').innerText = (d.scores && d.scores[name]) || 0;
             document.getElementById('p-wait').innerText = w > 0 ? "あと " + w + " 回休み" : "";
             if(d.winner === name && name !== "") {
-                if(d.mode === 'board') { bUI.style.display = 'block'; btn.style.display = 'none'; sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;">✨ 回答を入力 ✨</div>';
-                } else { bUI.style.display = 'none'; btn.style.display = 'inline-block'; sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;">✨ 口頭で回答！ ✨</div>'; }
+                if(d.mode === 'board') { bUI.style.display = 'block'; btn.style.display = 'none'; sArea.innerHTML = '<div class="turn-notice">✨ 回答を入力してください ✨</div>';
+                } else { bUI.style.display = 'none'; btn.style.display = 'inline-block'; sArea.innerHTML = '<div class="turn-notice">✨ 解答権獲得！ ✨</div>'; }
             } else { bUI.style.display = 'none'; btn.style.display = 'inline-block'; sArea.innerHTML = ''; }
             btn.disabled = !(name && w === 0 && d.status === 'active' && !d.winner);
         });
     }
 
     function sendBoardAns() {
-        const name = document.getElementById('p-name').value.trim(), text = document.getElementById('board-text').value.trim();
+        const name = document.getElementById('p-name').value.trim();
+        const text = document.getElementById('board-text').value.trim();
         if(!text) return; db.ref('boardAnswers/' + name).set(text); db.ref().update({ status: "active", winner: "" }); 
         document.getElementById('board-text').value = "";
     }
