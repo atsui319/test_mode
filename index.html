@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - 10-Pick Edition</title>
+    <title>QuizConsole Pro - Visibility Update</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -107,7 +107,6 @@
             <button class="btn-genre" id="btn-sport" onclick="changeGenre('sport')">スポ</button>
             <button class="btn-genre" id="btn-custom" onclick="changeGenre('custom')">★</button>
         </div>
-        <div style="font-size: 0.8rem; margin-bottom:5px; color:#666;">※ジャンル切替でランダムに10個選出されます</div>
         <input type="text" id="quizSearch" class="search-box" placeholder="🔍 ピックアップ内を検索..." oninput="renderList()">
         <div id="quizList" style="max-height: 450px; overflow-y: auto; border:1px solid #ddd;"></div>
     </div>
@@ -140,7 +139,7 @@
     };
 
     let masterData = { ori: [], ent: [], anime: [], social: [], life: [], sport: [], custom: [], all: [] };
-    let currentPool = []; // 現在のサイドバー用（10個）
+    let currentPool = [];
     let usedQuizzes = new Set(), currentQuiz = { q: "", a: "" }, revealedIndexes = [];
     let isRunning = false, timer = null, subWindow = null, currentWinner = "", lastStatus = "idle", currentGenre = 'all', intervalTime = 150;
     let quizCorrectCount = 0, currentMode = "push", quizHistory = [];
@@ -164,16 +163,12 @@
         } else { setupPlayer(); }
     }
 
-    // 仕様変更：ジャンル切り替え時に10個ピックアップ
     function changeGenre(g) { 
         currentGenre = g; 
         document.querySelectorAll('.btn-genre').forEach(b => b.classList.remove('active')); 
         if(document.getElementById('btn-'+g)) document.getElementById('btn-'+g).classList.add('active'); 
-        
         const fullList = masterData[currentGenre] || [];
-        // シャッフルして先頭10個を取得
         currentPool = [...fullList].sort(() => Math.random() - 0.5).slice(0, 10);
-        
         renderList(); 
     }
 
@@ -181,7 +176,6 @@
         const keyword = document.getElementById("quizSearch").value.toLowerCase();
         let displayList = currentPool;
         if(keyword) displayList = displayList.filter(i => i.q.includes(keyword) || i.a.includes(keyword));
-        
         document.getElementById("quizList").innerHTML = displayList.map(i => `
             <div class="quiz-item" style="padding:8px;border-bottom:1px solid #eee;cursor:pointer;${usedQuizzes.has(i.q)?'opacity:0.4;background:#eee':''}" 
                  onclick="applyQuiz({q:'${i.q.replace(/'/g,"\\'")}', a:'${i.a.replace(/'/g,"\\'")}'})">
@@ -218,8 +212,7 @@
 
     function startQuiz() {
         if(isRunning || !currentQuiz.q) return;
-        isRunning = true; 
-        db.ref("status").set("active"); 
+        isRunning = true; db.ref("status").set("active"); 
         timer = setInterval(() => {
             if(revealedIndexes.length < currentQuiz.q.length){
                 let n=0; while(revealedIndexes.includes(n)) n++;
@@ -242,6 +235,7 @@
         const mPts = parseInt(document.getElementById("minusPts").value);
         const waitCount = parseInt(document.getElementById("missWait").value);
         const maxLimit = parseInt(document.getElementById("maxCorrect").value);
+        
         if (isCorrect) {
             let add = quizCorrectCount < 3 ? pts[quizCorrectCount] : restPts;
             db.ref("scores/" + player).transaction(s => (s || 0) + add);
@@ -254,6 +248,9 @@
         } else {
             db.ref("scores/" + player).transaction(s => (s || 0) + mPts);
             db.ref("wrongList/" + player).set(true);
+            // 修正: ボードモードの場合、誤答した人のオープン状態を即座にオフにする
+            if(currentMode === "board") db.ref("showWrongBoard/" + player).set(false);
+            
             if(document.getElementById("applyWaitOnWrong").checked) db.ref("waits/"+player).set(waitCount);
             if(subWindow) subWindow.showFlash("❌","#e74c3c",'wrong');
             db.ref().update({winner:"", status:"pushed_done"}); 
@@ -336,7 +333,7 @@
                 const snd = { buzzer: new Audio("./buzzer.mp3"), correct: new Audio("./correct.mp3"), wrong: new Audio("./wrong.mp3"), type: new Audio("./type.mp3") };
                 window.initAudio = () => { if(!audioReady){ Object.values(snd).forEach(s=>{s.play().then(()=>s.pause());}); audioReady=true; } };
                 window.playTypeSound = () => { if(audioReady) { snd.type.currentTime=0; snd.type.play(); } };
-                window.showWinner = (n) => { if(audioReady) snd.buzzer.play(); document.getElementById('banner').innerText = n + " 解答中！"; document.getElementById('banner').style.display='block'; };
+                window.showWinner = (n) => { if(audioReady) snd.buzzer.play(); document.getElementById('banner').innerText = n + " さんが解答中！"; document.getElementById('banner').style.display='block'; };
                 window.showResult = (m,c,s) => { if(audioReady) snd[s].play(); document.getElementById('banner').style.background=c; document.getElementById('banner').innerText=m; };
                 window.showFlash = (m,c,s) => { if(audioReady) snd[s].play(); };
                 window.syncBoard = (d) => {
@@ -401,4 +398,3 @@
 </script>
 </body>
 </html>
-
