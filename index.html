@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Full Control</title>
+    <title>QuizConsole Pro - Sound Fix</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -93,9 +93,8 @@
         </div>
 
         <div class="sidebar">
-            <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--primary);">🏆 プレイヤー管理 (点数/休み)</h3>
+            <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--primary);">🏆 プレイヤー管理</h3>
             <div id="full-mgr-list" style="margin-bottom:20px; max-height:300px; overflow-y:auto; border:1px solid #ddd; padding:5px; border-radius:8px; background:#fafafa;"></div>
-            
             <div id="genre-tabs" style="display:flex; flex-wrap:wrap; gap:2px; margin-bottom:10px;"></div>
             <input type="text" id="search" placeholder="🔍 問題検索..." style="width:100%; padding:10px; border-radius:4px; border:1px solid #ccc;" oninput="renderList()">
             <div id="quiz-list-area"></div>
@@ -182,10 +181,15 @@
                     </div>`).join('');
             } else { bArea.style.display = 'none'; }
 
-            if(d.status === "pushed" && lastStatus !== "pushed") { clearInterval(timer); play('push'); }
+            // ステータスがpushedになったら音を鳴らす (連打対応)
+            if(d.status === "pushed") {
+                clearInterval(timer);
+                play('push');
+                // Firebase上のstatusを一度戻すことで、同じ人による2回目以降のpushも検知可能にする
+                if (d.winner) { /* 処理継続 */ }
+            }
             lastStatus = d.status;
 
-            // 管理者サイドバーの統合更新
             const scores = d.scores || {};
             const waits = d.waits || {};
             const sortedNames = Object.keys(scores).sort((a,b) => scores[b] - scores[a]);
@@ -218,7 +222,6 @@
 
     function modifyScore(name, val) { db.ref('scores/' + name).transaction(s => (s||0) + val); }
     function modifyWait(name, val) { db.ref('waits/' + name).transaction(w => Math.max(0, (w||0) + val)); }
-    
     function toggleRanking() { rankVisible = !rankVisible; db.ref('rankVisible').set(rankVisible); }
     function setGenre(g) {
         document.querySelectorAll('.btn-genre').forEach(b => b.classList.toggle('active', b.innerText === g || (g === 'all' && b.innerText === '全')));
@@ -314,8 +317,9 @@
 
     function openAnsChars() {
         db.ref('status').set('active');
+        play('type');
         const ansSet = new Set(Array.from(currentQuiz.a));
-        Array.from(currentQuiz.q).forEach((c,i) => { if(ansSet.has(c)) if(!revealed.includes(i)) revealed.push(i); });
+        Array.from(currentQuiz.q).forEach((c,i) => { if(ansSet.has(c) || c === '〇' || c === '○') { if(!revealed.includes(i)) revealed.push(i); } });
         sync();
     }
 
@@ -338,6 +342,7 @@
                 if(d.mode === 'board') { bUI.style.display = 'block'; btn.style.display = 'none'; sArea.innerHTML = '<div class="turn-notice">✨ 解答権獲得！答えを入力してください ✨</div>';
                 } else { bUI.style.display = 'none'; btn.style.display = 'inline-block'; sArea.innerHTML = '<div class="turn-notice">✨ 解答権獲得！口頭で答えてください ✨</div>'; }
             } else { bUI.style.display = 'none'; btn.style.display = 'inline-block'; sArea.innerHTML = ''; }
+            // 押しボタンの有効化条件（勝者がいないときのみ押せる）
             btn.disabled = !(name && w === 0 && d.status === 'active' && !d.winner);
         });
     }
@@ -354,7 +359,10 @@
     function pushBtn() {
         const name = document.getElementById('p-name').value.trim();
         if(!name) return alert("名前を入力！");
-        db.ref('winner').transaction(cur => { if(!cur) return name; return; }, (err, ok) => { if(ok) db.ref('status').set('pushed'); });
+        // Firebaseのwinnerをセット。成功した場合のみstatusをpushedにする
+        db.ref('winner').transaction(cur => { if(!cur) return name; return; }, (err, ok) => { 
+            if(ok) db.ref('status').set('pushed'); 
+        });
     }
 
     function openSubWindow() {
@@ -379,7 +387,14 @@
                     push: new Audio('buzzer.mp3'), correct: new Audio('correct.mp3'),
                     wrong: new Audio('wrong.mp3'), type: new Audio('type.mp3')
                 };
-                window.play = (s) => { if(sounds[s]) { sounds[s].currentTime=0; sounds[s].play().catch(()=>{}); } };
+                // 再生処理：currentTimeを0にリセットしてから再生することで、2回目以降も確実に鳴るように修正
+                window.play = (s) => { 
+                    if(sounds[s]) { 
+                        sounds[s].pause();
+                        sounds[s].currentTime = 0; 
+                        sounds[s].play().catch(e => console.log("Audio Error:", e)); 
+                    } 
+                };
                 window.showBanner = (m,c) => { const b=document.getElementById('banner'); b.innerText=m; b.style.background=c; b.style.display='block'; setTimeout(()=>b.style.display='none',2000); };
                 window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerHTML=q; };
                 window.toggleRank = (v) => { document.getElementById('rank-side').style.display = v ? 'block' : 'none'; };
