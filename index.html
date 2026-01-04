@@ -2,14 +2,14 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Bug Fixed Edition</title>
+    <title>QuizConsole Pro - System Fixed</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
         :root { --bg: #f0f2f5; --admin-card: #ffffff; --primary: #3498db; --danger: #e74c3c; --success: #2ecc71; --dark: #2c3e50; --warn: #e67e22; --test: #6c5ce7; }
         body { font-family: sans-serif; background-color: var(--bg); margin: 0; padding: 10px; color: #333; }
-        .main-layout { display: flex; gap: 15px; width: 100%; max-width: 1600px; margin: 0 auto; }
-        .container { background: var(--admin-card); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); flex: 1; }
+        .main-layout { display: none; gap: 15px; width: 100%; max-width: 1600px; margin: 0 auto; }
+        .container { background: var(--admin-card); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .sidebar { width: 420px; background: white; padding: 1rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-height: 95vh; overflow-y: auto; }
         #display { font-size: 1.8rem; line-height: 1.6; min-height: 5em; padding: 25px; background: var(--dark); color: #fff; border-radius: 8px; display: flex; flex-wrap: wrap; margin-bottom: 15px; align-content: flex-start; }
         #display span { margin-right: 2px; border-bottom: 2px solid #555; min-width: 0.8em; text-align: center; }
@@ -31,8 +31,8 @@
     <button style="width:100%; padding:20px; background:#9b59b6; color:white; border:none; border-radius:8px; cursor:pointer;" onclick="initRole('player')">📱 回答者端末</button>
 </div>
 
-<div id="admin-ui" class="main-layout" style="display:none;">
-    <div class="container">
+<div id="admin-ui" class="main-layout">
+    <div class="container" style="flex:1;">
         <div style="display:flex; gap:10px; margin-bottom:15px;">
             <button style="background:#8e44ad; flex:1.5; height:50px; color:white; border:none; border-radius:8px; font-weight:bold;" onclick="openSubWindow()">💻 視聴者画面を起動</button>
             <button style="background:var(--danger); flex:0.7; color:white; border:none; border-radius:8px;" onclick="resetAllScores()">🚮 リセット</button>
@@ -46,10 +46,8 @@
                 </select>
                 <button id="toggleRankBtn" onclick="toggleRankingVisibility()" style="padding:5px 10px; cursor:pointer; font-size:0.8rem;">🏆 表示中</button>
             </div>
-            
             <div id="activePlayer" style="font-size:2.5rem; font-weight:bold; color:var(--danger);">---</div>
             <div id="boardResults" style="text-align:left; max-height:200px; overflow-y:auto; margin:10px 0; display:none; background:#eee; padding:10px; border-radius:8px;"></div>
-            
             <div style="display:flex; gap:10px; margin:15px 0;">
                 <button style="flex:1; height:70px; background:var(--success); color:white; font-size:1.8rem; border-radius:8px;" onclick="manualJudge(true)">⭕ 正解</button>
                 <button style="flex:1; height:70px; background:var(--danger); color:white; font-size:1.8rem; border-radius:8px;" onclick="manualJudge(false)">❌ 誤答</button>
@@ -76,7 +74,6 @@
                 <button style="background:var(--primary); color:white;" onclick="openAllCharacters()">全開</button>
             </div>
         </div>
-
         <div id="display"></div>
         <div class="panel" style="background:#fff9db;">
             <strong>【正解】</strong> <span id="adminAnswer" style="color:red; font-weight:bold;">-</span><br>
@@ -88,7 +85,6 @@
             <button style="background:var(--primary); color:white; width:100%; height:55px; border-radius:8px; font-size:1.2rem; margin-top:10px;" onclick="startQuiz()">読上開始</button>
         </div>
     </div>
-
     <div class="sidebar">
         <div id="admin-score-list" class="panel" style="background:#e3f2fd;">スコア読込中...</div>
         <div id="genre-container" style="display:flex; flex-wrap:wrap; gap:2px; margin-bottom:10px;">
@@ -100,12 +96,12 @@
             <button class="btn-genre" id="btn-life" onclick="changeGenre('life')">ライ</button>
             <button class="btn-genre" id="btn-sport" onclick="changeGenre('sport')">スポ</button>
         </div>
-        <input type="text" id="quizSearch" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:10px;" placeholder="🔍 ピックアップ内を検索..." oninput="renderList()">
+        <input type="text" id="quizSearch" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:10px;" placeholder="🔍 検索..." oninput="renderList()">
         <div id="quizList" style="max-height: 450px; overflow-y: auto; border:1px solid #ddd;"></div>
     </div>
 </div>
 
-<div id="player-ui" class="container" style="display:none; text-align:center;">
+<div id="player-ui" class="container" style="display:none; text-align:center; max-width:500px; margin: 20px auto;">
     <div style="font-size:2rem; color:var(--danger); font-weight:bold;">Score: <span id="p-score">0</span></div>
     <div id="wait-status" style="color:red; font-size:1.2rem; font-weight:bold; height:1.5em; margin:10px;"></div>
     <input type="text" id="playerName" placeholder="名前を入力" style="padding:15px; font-size:1.2rem; margin:20px; width:80%; text-align:center;">
@@ -113,7 +109,7 @@
         <input type="text" id="boardText" placeholder="答えを入力" style="padding:15px; font-size:1.5rem; width:80%;"><br><br>
         <button style="padding:15px 40px; background:var(--success); color:white; border-radius:8px;" onclick="sendBoardAnswer()">回答送信</button>
     </div>
-    <button id="remote-button" disabled onclick="pushButton()">PUSH!</button>
+    <button id="remote-button" disabled style="width:200px; height:200px; border-radius:50%; font-size:2rem; cursor:pointer;" onclick="pushButton()">PUSH!</button>
 </div>
 
 <script>
@@ -137,8 +133,11 @@
 
     async function initRole(role) {
         document.getElementById("role-ui").style.display = "none";
-        document.getElementById(role + "-ui").style.display = (role === 'admin' ? 'flex' : 'block');
+        document.getElementById("admin-ui").style.display = "none";
+        document.getElementById("player-ui").style.display = "none";
+
         if (role === 'admin') {
+            document.getElementById("admin-ui").style.display = "flex";
             for (let [key, url] of Object.entries(URLS)) {
                 try {
                     const res = await fetch(url + "&t=" + Date.now());
@@ -150,7 +149,10 @@
                 } catch (e) {}
             }
             changeGenre('all'); setupAdminFirebase();
-        } else { setupPlayer(); }
+        } else {
+            document.getElementById("player-ui").style.display = "block";
+            setupPlayer();
+        }
     }
 
     function changeGenre(g) {
@@ -181,15 +183,12 @@
     function applyQuiz(obj) {
         stopQuiz(); currentQuiz = obj; revealedIndexes = []; 
         usedQuizzes.add(obj.q);
-        
-        // 【修正】クイズセット時に「休み中」の人のカウントを-1する
         db.ref("waits").once("value", snap => {
             const waits = snap.val() || {};
             const updates = {};
             Object.entries(waits).forEach(([n, v]) => { if(v > 0) updates[n] = v - 1; });
             db.ref("waits").update(updates);
         });
-
         db.ref().update({ status: "idle", winner: "", correctList: null, wrongList: null, showBoard: null, boardAnswers: null, finalReveal: false });
         document.getElementById("adminAnswer").innerText = obj.a;
         document.getElementById("adminFullText").innerText = obj.q;
@@ -231,7 +230,6 @@
         const pPts = parseInt(document.getElementById("ptsPlus").value);
         const mPts = parseInt(document.getElementById("minusPts").value);
         const waitCount = parseInt(document.getElementById("missWait").value);
-        
         if (isCorrect) {
             db.ref("scores/" + player).transaction(s => (s || 0) + pPts);
             db.ref("correctList/" + player).set(true);
@@ -274,15 +272,9 @@
                     return `<div class="board-answer"><span><strong>${name}:</strong> ${ans}</span><div><button class="toggle-show ${isV?'active':''}" onclick="db.ref('showBoard/${name}').set(${!isV})">${isV?'👁':'🙈'}</button><button onclick="manualJudge(true, '${name}')">〇</button><button onclick="manualJudge(false, '${name}')">×</button></div></div>`;
                 }).join("");
             } else boardDiv.style.display = "none";
-            
-            if(d.status === "pushed" && lastStatus !== "pushed") { 
-                stopQuiz(); // 視聴者側は監視しているのでここでの呼び出しは不要に
-            }
+            if(d.status === "pushed" && lastStatus !== "pushed") stopQuiz();
             lastStatus = d.status;
-            if(subWindow) {
-                subWindow.syncBoard(d);
-                subWindow.toggleRankArea(d.rankVisible !== false);
-            }
+            if(subWindow) { subWindow.syncBoard(d); subWindow.toggleRankArea(d.rankVisible !== false); }
         });
         db.ref("scores").on("value", snap => {
             const s = snap.val() || {};
@@ -293,7 +285,7 @@
 
     function openSubWindow() {
         subWindow = window.open("", "QuizSub", "width=1200,height=800");
-        subWindow.document.write(`<html><head><style>
+        subWindow.document.write(`<html><head><title>Quiz Viewer</title><style>
             body{background:#000;color:#fff;display:flex;font-family:sans-serif;margin:0;overflow:hidden;width:100vw;height:100vh;}
             #main{flex:3;display:flex;flex-direction:column;justify-content:center;align-items:center;border-right:2px solid #333;transition:0.3s;}
             #ranking{width:350px;background:#111;padding:20px;transition:0.3s;overflow-y:auto;}
@@ -316,13 +308,10 @@
                 const firebaseConfig = { databaseURL: "https://realtime-database-c0015-default-rtdb.firebaseio.com/" };
                 firebase.initializeApp(firebaseConfig);
                 const db = firebase.database();
-
                 let audioReady = false;
                 const snd = { buzzer: new Audio("./buzzer.mp3"), correct: new Audio("./correct.mp3"), wrong: new Audio("./wrong.mp3"), type: new Audio("./type.mp3") };
                 window.initAudio = () => { if(!audioReady){ Object.values(snd).forEach(s=>{s.play().then(()=>s.pause());}); audioReady=true; } };
                 window.playTypeSound = () => { if(audioReady) { snd.type.currentTime=0; snd.type.play(); } };
-                
-                // 【修正】Firebaseを直接監視して解答者名を100%表示
                 let lastSubStatus = "";
                 db.ref().on("value", snap => {
                     const d = snap.val() || {};
@@ -336,10 +325,8 @@
                     }
                     lastSubStatus = d.status;
                 });
-
-                window.showResult = (m,c,s) => { if(audioReady) snd[s].play(); document.getElementById('banner').style.background=c; document.getElementById('banner').innerText=m; };
+                window.showResult = (m,c,s) => { if(audioReady) snd[s].play(); const b=document.getElementById('banner'); b.style.background=c; b.innerText=m; };
                 window.showFlash = (m,c,s) => { if(audioReady) snd[s].play(); };
-
                 window.syncBoard = (d) => {
                     if(d.mode !== 'board' || !d.boardAnswers) return;
                     document.getElementById('board-area').innerHTML = Object.entries(d.boardAnswers).map(([name, ans]) => {
@@ -350,12 +337,7 @@
                         return '<div class="card '+(isC?'correct':isW?'wrong':'')+'"><div>'+name+'</div><div style="font-size:2rem">'+disp+'</div></div>';
                     }).join('');
                 };
-
-                window.toggleRankArea = (visible) => {
-                    const r = document.getElementById('ranking');
-                    if(visible) r.classList.remove('hidden'); else r.classList.add('hidden');
-                };
-
+                window.toggleRankArea = (visible) => { const r = document.getElementById('ranking'); if(visible) r.classList.remove('hidden'); else r.classList.add('hidden'); };
                 window.revealAnswer = (a, q) => { document.getElementById('text').innerHTML=q; document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; };
                 window.updateRanking = (s) => { document.getElementById('rank-list').innerHTML = Object.entries(s).sort((a,b)=>b[1]-a[1]).map(([n,v])=>'<div>'+n+': '+v+'pt</div>').join(''); };
                 window.resetForNext = () => { document.getElementById('banner').style.display='none'; document.getElementById('ans').style.display='none'; document.getElementById('board-area').innerHTML=''; };
@@ -370,19 +352,17 @@
             const isC = d.correctList && d.correctList[n], isW = d.wrongList && d.wrongList[n];
             if(n) {
                 document.getElementById("p-score").innerText = (d.scores && d.scores[n]) || 0;
-                if(w > 0) document.getElementById("wait-status").innerText = "あと " + w + " 回休み";
-                else document.getElementById("wait-status").innerText = "";
+                document.getElementById("wait-status").innerText = w > 0 ? "あと " + w + " 回休み" : "";
             }
             if(d.mode === "board" && d.status === "pushed" && d.winner === n) { bi.style.display = "block"; btn.style.display = "none"; }
             else { bi.style.display = "none"; }
-            if (n && w === 0 && !d.winner && !isC && !isW) { btn.style.display="block"; btn.disabled=false; btn.classList.add("active"); } 
-            else { btn.disabled=true; btn.classList.remove("active"); btn.style.display="block"; }
+            if (n && w === 0 && !d.winner && !isC && !isW) { btn.style.display="inline-block"; btn.disabled=false; btn.style.background="var(--danger)"; btn.style.color="white"; } 
+            else { btn.disabled=true; btn.style.background="#ccc"; btn.style.color="#666"; btn.style.display="inline-block"; }
         });
     }
 
     function sendBoardAnswer() {
-        const n = document.getElementById("playerName").value.trim();
-        const t = document.getElementById("boardText").value.trim();
+        const n = document.getElementById("playerName").value.trim(), t = document.getElementById("boardText").value.trim();
         if(!t || !n) return;
         db.ref("boardAnswers/" + n).set(t);
         db.ref("showBoard/" + n).set(true);
