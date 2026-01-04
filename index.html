@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Silent Attribute Open</title>
+    <title>QuizConsole Pro - Result & Global Search</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -46,6 +46,7 @@
             <div class="container">
                 <div style="display:flex; gap:10px; margin-bottom:15px;">
                     <button onclick="openSubWindow()" style="background:#8e44ad; color:white; flex:1; padding:12px; border-radius:8px; border:none; cursor:pointer;">📺 視聴者画面を起動</button>
+                    <button onclick="db.ref('isGameSet').set(true)" style="background:var(--dark); color:white; padding:10px; border-radius:8px; border:none; cursor:pointer;">🏁 ゲームセット</button>
                     <button onclick="resetAll()" style="background:var(--danger); color:white; padding:10px; border-radius:8px; border:none;">🚮 リセット</button>
                 </div>
                 
@@ -106,7 +107,7 @@
             <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--primary);">🏆 プレイヤー管理</h3>
             <div id="full-mgr-list" style="margin-bottom:20px; max-height:280px; overflow-y:auto; border:1px solid #ddd; padding:5px; border-radius:8px; background:#fafafa;"></div>
             <div id="genre-tabs" style="display:flex; flex-wrap:wrap; gap:2px; margin-bottom:10px;"></div>
-            <input type="text" id="search" placeholder="🔍 問題検索..." style="width:100%; padding:10px; border-radius:4px; border:1px solid #ccc;" oninput="renderList()">
+            <input type="text" id="search" placeholder="🔍 全問題から検索..." style="width:100%; padding:12px; border-radius:4px; border:2px solid var(--primary); outline:none;" oninput="renderList()">
             <div id="quiz-list-area"></div>
         </div>
     </div>
@@ -135,16 +136,15 @@
 
     const URLS = {
         ori: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFuFjp8CnBMqfdRPKbQ_FPC6zWwgdQBVdTDsdWTHbBN92vXADxbVTmHdLm_C3Yn-Eeu5ZWm9WXRb0c/pub?output=csv",
-        ent: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjKfK1zTkytDnO1HiVRHa0N79VJncU_IXC3uv8Q2EBvBIm5mRPw82ie-widupSvvlR1vQdkVeeIIMM/pub?output=csv",
+        ent: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjKfK1zTkytDnO1HiVRHa0Yp8VJncU_IXC3uv8Q2EBvBIm5mRPw82ie-widupSvvlR1vQdkVeeIIMM/pub?output=csv",
         anime: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTBRf9k4zS7Ht5s7GKejqT2d-cyWbDHd19DwTPmAzoHe40d9nV1cVu-RH565sIq9GbYmEKkzhpBytp/pub?output=csv",
         social: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXVYOqHu_0VRIkiVK0RQO-ZWPZ6pHGqIw5VxBWdOlg3-HbP3q26gM0fVxTndREhjqbaxFzcjeuoMcE/pub?output=csv",
         life: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTr7JL0lBCMLRBFi-CraPlJxzp4xrGD8RSnc8MSuoV3ORISo0iCFWMmI_FCtDlgkxwPqmv_TwAvufn/pub?output=csv",
         sport: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSJYls3O8_98SKNWqx34c0V5HLIaXdxxA8v4E3c1iwrTFZBL1TSxzeem9AbKZKYfMkQEcu7bECcsgVo/pub?output=csv"
     };
 
-    let masterData = { all: [] }, currentPool = [], usedSet = new Set(), currentQuiz = { q: "", a: "" }, revealed = [];
-    let timer = null, subWindow = null, curWinner = "", lastStatus = "", rankVisible = true;
-    let correctCount = 0, lastRePush = 0;
+    let masterData = { all: [] }, activeGenre = 'all', usedSet = new Set(), currentQuiz = { q: "", a: "" }, revealed = [];
+    let timer = null, subWindow = null, curWinner = "", lastStatus = "", rankVisible = true, lastRePush = 0;
 
     function switchPage(role) {
         document.querySelectorAll('.page-section').forEach(el => el.style.display = 'none');
@@ -156,6 +156,7 @@
         const tabs = document.getElementById('genre-tabs');
         tabs.innerHTML = '<button class="btn-genre active" onclick="setGenre(\'all\')">全</button>' + 
             Object.keys(URLS).map(k => `<button class="btn-genre" onclick="setGenre('${k}')">${k}</button>`).join('');
+        
         for (let [k, url] of Object.entries(URLS)) {
             try {
                 const res = await fetch(url + "&t=" + Date.now());
@@ -167,14 +168,14 @@
                 masterData[k] = data; masterData.all = masterData.all.concat(data);
             } catch(e) {}
         }
-        setGenre('all');
+        renderList();
+
         db.ref().on('value', snap => {
             const d = snap.val() || {};
             curWinner = d.winner || "";
             document.getElementById('activePlayer').innerText = curWinner || "---";
             rankVisible = d.rankVisible !== false;
-            correctCount = d.correctList ? Object.keys(d.correctList).length : 0;
-
+            
             const bArea = document.getElementById('boardResults');
             if(d.mode === 'board' && d.boardAnswers) {
                 bArea.style.display = 'block';
@@ -183,7 +184,6 @@
             
             if(d.status === "pushed" && lastStatus !== "pushed") { clearInterval(timer); play('push'); }
             if(d.rePushTrigger && d.rePushTrigger !== lastRePush) { play('push'); lastRePush = d.rePushTrigger; }
-            
             lastStatus = d.status;
 
             const scores = d.scores || {}, waits = d.waits || {};
@@ -198,23 +198,36 @@
                         <div class="mgr-ctrl"><button onclick="modifyWait('${n}', 1)">+</button><button onclick="modifyWait('${n}', -1)">-</button></div>
                     </div>
                 </div>`).join('');
-            if(subWindow) { subWindow.syncBoard(d); subWindow.toggleRank(rankVisible); subWindow.updateRank(Object.entries(scores).sort((a,b)=>b[1]-a[1])); }
+            
+            if(subWindow) { 
+                subWindow.syncBoard(d); 
+                subWindow.toggleRank(rankVisible); 
+                subWindow.updateRank(Object.entries(scores).sort((a,b)=>b[1]-a[1]));
+                if(d.isGameSet) subWindow.showResult(Object.entries(scores).sort((a,b)=>b[1]-a[1]), d.history);
+            }
         });
     }
 
     function modifyScore(name, val) { db.ref('scores/' + name).transaction(s => (s||0) + val); }
     function modifyWait(name, val) { db.ref('waits/' + name).transaction(w => Math.max(0, (w||0) + val)); }
     function toggleRanking() { rankVisible = !rankVisible; db.ref('rankVisible').set(rankVisible); }
+    
     function setGenre(g) {
+        activeGenre = g;
         document.querySelectorAll('.btn-genre').forEach(b => b.classList.toggle('active', b.innerText === g || (g === 'all' && b.innerText === '全')));
-        currentPool = [...(masterData[g] || [])].sort(() => Math.random() - 0.5).slice(0, 20);
         renderList();
     }
+
     function renderList() {
         const q = document.getElementById('search').value.toLowerCase();
-        let list = currentPool;
-        if(q) list = list.filter(i => i.q.includes(q) || i.a.includes(q));
-        document.getElementById('quiz-list-area').innerHTML = list.map(i => `<div onclick="applyQuiz('${i.q.replace(/'/g,"\\'")}', '${i.a.replace(/'/g,"\\'")}')" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer; ${usedSet.has(i.q)?'opacity:0.3':''}"><strong>${i.a}</strong><br><small>${i.q.substring(0,50)}...</small></div>`).join('');
+        let list = masterData[activeGenre] || [];
+        // 検索ワードがある場合は全件からフィルタ、ない場合は先頭30件のみ表示（重くならないよう）
+        if(q) {
+            list = list.filter(i => i.q.includes(q) || i.a.includes(q));
+        } else {
+            list = list.slice(0, 30);
+        }
+        document.getElementById('quiz-list-area').innerHTML = list.map(i => `<div onclick="applyQuiz('${i.q.replace(/'/g,"\\'")}', '${i.a.replace(/'/g,"\\'")}')" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer; ${usedSet.has(i.q)?'opacity:0.3':''}"><strong>${i.a}</strong><br><small>${i.q.substring(0,60)}...</small></div>`).join('');
     }
 
     function applyQuiz(q, a) {
@@ -231,9 +244,13 @@
             Object.entries(w).forEach(([n, v]) => { up[n] = Math.max(0, v - 1); });
             db.ref('waits').update(up);
         });
+
+        // 履歴に追加
+        db.ref('history').push({ q, a });
+
         db.ref().update({ 
             status: "waiting", winner: "", correctList: null, wrongList: null, 
-            boardAnswers: null, finalReveal: false, maxWinners: maxVal, bonusPoint: pointVal, rePushTrigger: 0 
+            boardAnswers: null, finalReveal: false, maxWinners: maxVal, bonusPoint: pointVal, rePushTrigger: 0, isGameSet: false
         });
         if(subWindow) subWindow.resetForNext();
         sync(true); renderList();
@@ -267,18 +284,13 @@
             const d = snap.val();
             const max = d.maxWinners || 1;
             const baseBonus = d.bonusPoint || 1;
-            
             if(isOK) {
                 play('correct');
                 let curCount = d.correctList ? Object.keys(d.correctList).length : 0;
-                let finalScore = baseBonus;
-                if(d.mode === 'board') {
-                    finalScore = (curCount === 0 ? baseBonus * 3 : (curCount === 1 ? baseBonus * 2 : baseBonus));
-                }
+                let finalScore = (d.mode === 'board') ? (curCount === 0 ? baseBonus * 3 : (curCount === 1 ? baseBonus * 2 : baseBonus)) : baseBonus;
                 db.ref('scores/' + p).transaction(s => (s||0) + finalScore);
                 db.ref('correctList/' + p).set(true);
                 if(subWindow) subWindow.showBanner(p + " 正解！(+" + finalScore + ")", "#2ecc71");
-                
                 if(curCount + 1 >= max) { db.ref().update({ status: "idle", winner: "" }); } 
                 else { db.ref('winner').set(""); }
             } else {
@@ -294,8 +306,6 @@
     }
 
     function removeBoard(p) { db.ref('boardAnswers/' + p).remove(); }
-    
-    // 属性公開：音なしに修正
     function openType(t) {
         db.ref('status').set('active');
         const m = { kanji:/[\u4E00-\u9FFF]/, hira:/[\u3040-\u309F]/, kana:/[\u30A0-\u30FF]/, num:/[0-9０-９]/, alp:/[a-zＡ-Ｚ]/i, sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/ };
@@ -305,11 +315,10 @@
         db.ref('status').set('active');
         Array.from(currentQuiz.q).forEach((c,i) => { if(c === '〇' || c === '○') if(!revealed.includes(i)) revealed.push(i); }); sync();
     }
-    
     function resumeQuiz() { db.ref('status').set('active'); startQuiz(); }
     function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
     function openAll() { db.ref('status').set('active'); revealed = Array.from(currentQuiz.q).map((_,i)=>i); sync(); }
-    function resetAll() { if(confirm("完全リセットしますか？")) db.ref().set({ status: "idle", mode: "push", rankVisible: true }); }
+    function resetAll() { if(confirm("履歴・スコアを含め完全リセットしますか？")) db.ref().set({ status: "idle", mode: "push", rankVisible: true, isGameSet: false, history: null }); }
 
     function initPlayer() {
         const btn = document.getElementById('remote-button'), bUI = document.getElementById('board-input-ui'), sArea = document.getElementById('player-status-area'), ni = document.getElementById('p-name');
@@ -317,43 +326,27 @@
             const d = snap.val() || {}; const name = ni.value.trim();
             const w = (d.waits && d.waits[name]) || 0;
             const isCorrected = d.correctList && d.correctList[name];
-
             document.getElementById('p-score').innerText = (d.scores && d.scores[name]) || 0;
             document.getElementById('p-wait').innerText = w > 0 ? "あと " + w + " 回休み" : "";
-            
             if(d.winner === name && name !== "") {
-                if(d.mode === 'board') { 
-                    bUI.style.display = 'block'; btn.style.display = 'none'; 
-                    sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;">✨ 回答を入力 ✨</div>';
-                } else { 
-                    bUI.style.display = 'none'; btn.style.display = 'inline-block'; 
-                    sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;">✨ 口頭で回答！ ✨</div>'; 
-                }
-            } else { 
-                bUI.style.display = 'none'; btn.style.display = 'inline-block'; 
-                sArea.innerHTML = isCorrected ? '<div style="color:var(--success);font-weight:bold;">✅ 正解済み</div>' : ''; 
-            }
+                if(d.mode === 'board') { bUI.style.display = 'block'; btn.style.display = 'none'; sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;">✨ 回答を入力 ✨</div>';
+                } else { bUI.style.display = 'none'; btn.style.display = 'inline-block'; sArea.innerHTML = '<div style="background:#fff3cd;padding:10px;border-radius:8px;border:2px solid #f39c12;">✨ 口頭で回答！ ✨</div>'; }
+            } else { bUI.style.display = 'none'; btn.style.display = 'inline-block'; sArea.innerHTML = isCorrected ? '<div style="color:var(--success);font-weight:bold;">✅ 正解済み</div>' : ''; }
             btn.disabled = !(name && w === 0);
         });
     }
 
     function sendBoardAns() {
         const name = document.getElementById('p-name').value.trim(), text = document.getElementById('board-text').value.trim();
-        if(!text) return; db.ref('boardAnswers/' + name).set(text); db.ref('winner').set(""); 
-        document.getElementById('board-text').value = "";
+        if(!text) return; db.ref('boardAnswers/' + name).set(text); db.ref('winner').set(""); document.getElementById('board-text').value = "";
     }
     
     function pushBtn() {
         const name = document.getElementById('p-name').value.trim(); if(!name) return alert("名前を入力！");
         db.ref().once('value', snap => {
             const d = snap.val();
-            if(d.winner || (d.correctList && d.correctList[name]) || d.status !== 'active') {
-                db.ref('rePushTrigger').transaction(c => (c||0) + 1);
-                return;
-            }
-            db.ref('winner').transaction(cur => { if(!cur) return name; return; }, (err, ok) => { 
-                if(ok) db.ref('status').set('pushed'); 
-            });
+            if(d.winner || (d.correctList && d.correctList[name]) || d.status !== 'active') { db.ref('rePushTrigger').transaction(c => (c||0) + 1); return; }
+            db.ref('winner').transaction(cur => { if(!cur) return name; return; }, (err, ok) => { if(ok) db.ref('status').set('pushed'); });
         });
     }
 
@@ -361,7 +354,7 @@
         subWindow = window.open("", "QuizSub", "width=1200,height=800");
         subWindow.document.write(`<html><head><style>
             body{background:#000;color:#fff;font-family:sans-serif;margin:0;overflow:hidden;display:flex;}
-            #main-container{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;}
+            #main-container{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;transition:0.5s;}
             #rank-side{width:320px;background:#111;border-left:3px solid #333;padding:25px;}
             #banner{display:none;font-size:5rem;padding:20px;position:absolute;top:0;width:100%;z-index:10;text-align:center;font-weight:bold;}
             #text{font-size:3.5rem;line-height:1.4;width:90%;text-align:center;font-weight:bold;}
@@ -369,9 +362,24 @@
             #ans{display:none;font-size:5rem;color:#f1c40f;border:10px solid #f1c40f;padding:20px;margin-top:25px;text-align:center;font-weight:bold;border-radius:20px;}
             #board-area{display:flex;flex-wrap:wrap;justify-content:center;margin-top:30px;gap:15px;}
             .rank-item{margin-bottom:12px;font-size:1.6rem;border-bottom:1px solid #444;padding-bottom:8px;display:flex;justify-content:space-between;}
+            #result-screen{display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); z-index:100; overflow-y:auto; padding:50px; box-sizing:border-box;}
+            .res-card { background:rgba(255,255,255,0.1); backdrop-filter:blur(10px); padding:30px; border-radius:20px; margin-bottom:30px; }
+            .hist-item { border-bottom:1px solid rgba(255,255,255,0.2); padding:10px 0; font-size:1.2rem; }
         </style></head><body>
             <div id="main-container"><div id="banner"></div><div id="text"></div><div id="ans"></div><div id="board-area"></div></div>
             <div id="rank-side"><h2 style="color:#3498db;border-bottom:2px solid #555;">RANKING</h2><div id="rank-list"></div></div>
+            <div id="result-screen">
+                <h1 style="text-align:center; font-size:4rem; text-shadow:0 5px 15px rgba(0,0,0,0.5);">GAME SET</h1>
+                <div class="res-card">
+                    <h2 style="color:#f1c40f; border-bottom:3px solid #f1c40f;">🏆 FINAL RANKING</h2>
+                    <div id="final-rank-list" style="font-size:2rem;"></div>
+                </div>
+                <div class="res-card">
+                    <h2 style="color:#fff; border-bottom:3px solid #fff;">📚 QUIZ LOG</h2>
+                    <div id="final-history-list"></div>
+                </div>
+                <button onclick="document.getElementById('result-screen').style.display='none'" style="display:block; margin:50px auto; padding:15px 40px; font-size:1.5rem; cursor:pointer;">閉じる</button>
+            </div>
             <script>
                 const sounds = { push: new Audio('buzzer.mp3'), correct: new Audio('correct.mp3'), wrong: new Audio('wrong.mp3'), type: new Audio('type.mp3') };
                 window.play = (s) => { if(sounds[s]) { sounds[s].pause(); sounds[s].currentTime = 0; sounds[s].play().catch(()=>{}); } };
@@ -379,6 +387,15 @@
                 window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerHTML=q; };
                 window.toggleRank = (v) => { document.getElementById('rank-side').style.display = v ? 'block' : 'none'; };
                 window.updateRank = (list) => { document.getElementById('rank-list').innerHTML = list.map(([n,v]) => '<div class="rank-item"><span>'+n+'</span><span>'+v+'pt</span></div>').join(''); };
+                window.showResult = (ranks, history) => { 
+                    const rs = document.getElementById('result-screen');
+                    if(rs.style.display === 'block') return;
+                    rs.style.display = 'block';
+                    document.getElementById('final-rank-list').innerHTML = ranks.map(([n,v], i) => '<div class="rank-item"><span>'+(i+1)+'位: '+n+'</span><span>'+v+'pt</span></div>').join('');
+                    if(history) {
+                        document.getElementById('final-history-list').innerHTML = Object.values(history).reverse().map(h => '<div class="hist-item"><strong>Q:</strong> '+h.q+'<br><strong style="color:#f1c40f;">A:</strong> '+h.a+'</div>').join('');
+                    }
+                };
                 window.syncBoard = (d) => {
                     const area = document.getElementById('board-area');
                     if(d.mode === 'board' && d.boardAnswers) {
