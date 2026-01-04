@@ -33,9 +33,21 @@
 </head>
 <body>
 
-<!-- ===== UI（元コード完全維持）===== -->
-<!-- role-ui / admin-ui / player-ui は元コードと同一のため省略せず使用してください -->
-<!-- ※ ここはあなたが貼った元HTMLと1文字も変えていません -->
+<script>
+const firebaseConfig = {
+  apiKey: "DUMMY_KEY_FOR_GITHUB_PAGES",
+  authDomain: "realtime-database-c0015.firebaseapp.com",
+  databaseURL: "https://realtime-database-c0015-default-rtdb.firebaseio.com",
+  projectId: "realtime-database-c0015",
+  storageBucket: "realtime-database-c0015.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:dummy"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+</script>
+
 
 <script>
 const firebaseConfig = { databaseURL: "https://realtime-database-c0015-default-rtdb.firebaseio.com/" };
@@ -146,3 +158,4 @@ function sync(forceHideSub=false){
 
 </body>
 </html>
+
