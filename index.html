@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Board Control</title>
+    <title>QuizConsole Pro - Board Logic Fix</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -19,13 +19,12 @@
         .btn-genre { padding: 8px; font-size: 0.75rem; cursor: pointer; flex: 1; border: 1px solid #ccc; background: #fff; }
         .btn-genre.active { background: var(--primary); color: white; }
         
-        /* ボード回答リスト */
         .board-ans-item { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; margin-top: 5px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
         .judge-btns-mini { display: flex; gap: 4px; }
         .judge-btns-mini button { padding: 6px 10px; cursor: pointer; border-radius: 4px; border: none; font-weight: bold; color: white; font-size: 0.8rem; }
         .btn-ok { background: var(--success); }
         .btn-ng { background: var(--danger); }
-        .btn-del { background: #7f8c8d; } /* 削除ボタン */
+        .btn-del { background: #7f8c8d; }
 
         .type-btns button { padding: 8px 10px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; font-weight: bold; font-size: 0.85rem; }
         #remote-button { width: 220px; height: 220px; border-radius: 50%; font-size: 2rem; font-weight: bold; cursor: pointer; border: 10px solid #eee; }
@@ -60,7 +59,6 @@
                         <button onclick="toggleRanking()" style="cursor:pointer;">🏆 ランキング切替</button>
                     </div>
                     <div id="activePlayer" style="font-size:2.8rem; font-weight:bold; color:var(--danger); min-height:1.2em;">---</div>
-                    
                     <div id="boardResults" style="display:none; text-align:left; background:white; padding:10px; border-radius:8px; margin:10px 0; max-height:220px; overflow-y:auto; border:1px solid #ddd;"></div>
                     
                     <div style="display:flex; gap:10px;">
@@ -251,24 +249,20 @@
         if(isOK) {
             play('correct');
             db.ref('scores/' + p).transaction(s => (s||0) + 2);
-            db.ref('correctList/' + p).set(true);
+            db.ref('correctList/' + p).set(true); // 正解リストへ追加
             if(subWindow) subWindow.showBanner(p + " 正解！", "#2ecc71");
             db.ref().update({ status: "idle", winner: "" });
         } else {
             play('wrong');
             db.ref('scores/' + p).transaction(s => (s||0) - 1);
             db.ref('waits/' + p).set(2);
-            db.ref('wrongList/' + p).set(true);
-            // 修正：×判定してもボードデータ（boardAnswers）は消さずにバナーのみ表示
+            db.ref('wrongList/' + p).set(true); // 誤答リストへ追加（これにより即座に表示される）
             if(subWindow) subWindow.showBanner(p + " ×", "#e74c3c");
             db.ref().update({ status: "pushed_done", winner: "" });
         }
     }
 
-    // 個別にボードを非表示（Firebaseから削除）にする関数
-    function removeBoard(p) {
-        db.ref('boardAnswers/' + p).remove();
-    }
+    function removeBoard(p) { db.ref('boardAnswers/' + p).remove(); }
 
     function openType(t) {
         play('type');
@@ -349,11 +343,15 @@
                     const area = document.getElementById('board-area');
                     if(d.mode === 'board' && d.boardAnswers) {
                         area.innerHTML = Object.entries(d.boardAnswers).map(([n, ans]) => {
-                            const isFin = d.finalReveal || (d.correctList && d.correctList[n]);
+                            // 表示判定：最終公開中 OR 誤答リスト入りしている場合は中身を表示、そうでなければ？？？
                             const isWrong = d.wrongList && d.wrongList[n];
-                            return '<div style="background:#222;border:3px solid '+(isWrong?'#e74c3c':'#555')+';padding:20px;border-radius:15px;min-width:180px;text-align:center;position:relative;">'+
+                            const isCorrect = d.correctList && d.correctList[n];
+                            const shouldShow = d.finalReveal || isWrong;
+                            
+                            return '<div style="background:#222;border:3px solid '+(isWrong?'#e74c3c':(isCorrect?'#2ecc71':'#555'))+';padding:20px;border-radius:15px;min-width:180px;text-align:center;position:relative;">'+
                                    (isWrong?'<div style="position:absolute;top:5px;right:10px;color:#e74c3c;font-weight:bold;">×</div>':'')+
-                                   '<div style="font-size:1.2rem;color:#aaa;">'+n+'</div><div style="font-size:2.5rem;color:#f1c40f;font-weight:bold;">'+(isFin ? ans : "？？？")+'</div></div>';
+                                   (isCorrect?'<div style="position:absolute;top:5px;right:10px;color:#2ecc71;font-weight:bold;">〇</div>':'')+
+                                   '<div style="font-size:1.2rem;color:#aaa;">'+n+'</div><div style="font-size:2.5rem;color:#f1c40f;font-weight:bold;">'+(shouldShow ? ans : "？？？")+'</div></div>';
                         }).join('');
                     } else { area.innerHTML = ""; }
                 };
