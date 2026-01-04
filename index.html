@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Enterprise Edition</title>
+    <title>QuizConsole Pro - Enterprise Edition v2</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -123,7 +123,6 @@
 </div>
 
 <script>
-    // --- 初期設定 & セキュリティ ---
     const firebaseConfig = { databaseURL: "https://realtime-database-c0015-default-rtdb.firebaseio.com/" };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
@@ -140,12 +139,10 @@
         sport: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSJYls3O8_98SKNWqx34c0V5HLIaXdxxA8v4E3c1iwrTFZBL1TSxzeem9AbKZKYfMkQEcu7bECcsgVo/pub?output=csv"
     };
 
-    // 安全な名前変換 (Firebaseキー用)
     const safeName = (n) => n.replace(/[.#$/[\]]/g, "_");
-    // HTMLエスケープ
     const hEsc = (s) => { const e = document.createElement('div'); e.textContent = s; return e.innerHTML; };
 
-    function requestSound(s) { if(subWindow && !subWindow.closed) subWindow.play(s); }
+    function requestSound(s) { if(subWindow && !subWindow.closed && subWindow.play) subWindow.play(s); }
     function reportTyping(val) { const name = safeName(document.getElementById('p-name').value.trim()); if(name) db.ref('typing/'+name).set(val.length > 0); }
 
     function switchPage(role) {
@@ -154,25 +151,18 @@
         role === 'admin' ? initAdmin() : initPlayer();
     }
 
-    // --- 管理者機能 ---
     async function initAdmin() {
-        // 出題済みセットの同期
         db.ref('usedSet').on('value', s => { usedSet = new Set(s.val() || []); renderList(); });
-
         const tabs = document.getElementById('genre-tabs');
-        tabs.innerHTML = '<button class="btn-genre active" onclick="setGenre(\'all\')">全</button>' + 
-            Object.keys(URLS).map(k => `<button class="btn-genre" onclick="setGenre('${k}')">${k}</button>`).join('');
+        tabs.innerHTML = '<button class="btn-genre active" onclick="setGenre(\'all\')">全</button>' + Object.keys(URLS).map(k => `<button class="btn-genre" onclick="setGenre('${k}')">${k}</button>`).join('');
         
         for (let [k, url] of Object.entries(URLS)) {
             try {
                 const res = await fetch(url + "&t=" + Date.now());
                 const text = await res.text();
-                // 堅牢なCSVパース (正規表現)
                 const data = text.split(/\r?\n/).slice(1).map(l => {
                     const m = l.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-                    if (m && m.length >= 2) {
-                        return { q: m[0].replace(/^"|"$/g, '').trim(), a: m[1].replace(/^"|"$/g, '').trim() };
-                    }
+                    if (m && m.length >= 2) return { q: m[0].replace(/^"|"$/g, '').trim(), a: m[1].replace(/^"|"$/g, '').trim() };
                     return null;
                 }).filter(v => v);
                 masterData[k] = data; masterData.all = masterData.all.concat(data);
@@ -183,14 +173,13 @@
         db.ref().on('value', snap => {
             const d = snap.val() || {};
             const statusLabel = document.getElementById('status-label');
-            
-            // ステータスバッジ更新
             if(d.status === 'active') { statusLabel.innerText = "🟢 受付中"; statusLabel.style.background = "var(--success)"; }
             else if(d.status === 'pushed') { statusLabel.innerText = "🔴 解答待ち"; statusLabel.style.background = "var(--danger)"; }
             else { statusLabel.innerText = "⚪ 待機中"; statusLabel.style.background = "#777"; }
 
             document.getElementById('activePlayer').innerText = d.winner ? "🎤 " + d.winner : (d.mode === 'all_board' && d.status !== 'waiting' ? "🖊 全員解答中" : "待機中");
             
+            // ★早押し音の発火
             if(d.status === "pushed" && lastStatus !== "pushed") { clearInterval(timer); requestSound('push'); }
             lastStatus = d.status;
 
@@ -210,7 +199,6 @@
                 subWindow.syncBoard(d); subWindow.toggleRank(d.rankVisible !== false); subWindow.updateRank(scoreEntries);
                 if(d.isGameSet) subWindow.showResult(scoreEntries, history); else subWindow.hideResult();
             }
-            // 視聴者画面接続チェック
             document.getElementById('subwin-btn').style.opacity = (!subWindow || subWindow.closed) ? "1" : "0.5";
         });
     }
@@ -219,22 +207,17 @@
     function modifyWait(n, v) { db.ref('waits/'+safeName(n)).transaction(w => Math.max(0, (w||0)+v)); }
     function toggleRanking() { db.ref('rankVisible').transaction(v => v === undefined ? false : !v); }
     function setGenre(g) { activeGenre = g; renderList(); }
-
     function renderList() {
         const s = document.getElementById('search').value.toLowerCase();
         let list = masterData[activeGenre] || [];
         if(s) list = list.filter(i => i.q.includes(s) || i.a.includes(s));
         else list = [...list].sort(() => Math.random() - 0.5).slice(0, 30);
-        
-        document.getElementById('quiz-list-area').innerHTML = list.map(i => {
-            const isUsed = usedSet.has(i.q);
-            return `<div class="quiz-item" onclick="applyQuiz('${hEsc(i.q.replace(/'/g,"\\'"))}', '${hEsc(i.a.replace(/'/g,"\\'"))}')" style="padding:10px; border-bottom:1px solid #eee; ${isUsed?'opacity:0.3;':'cursor:pointer;'}"><strong>${hEsc(i.a)}</strong><br><small>${hEsc(i.q)}</small></div>`;
-        }).join('');
+        document.getElementById('quiz-list-area').innerHTML = list.map(i => `<div class="quiz-item" onclick="applyQuiz('${hEsc(i.q.replace(/'/g,"\\'"))}', '${hEsc(i.a.replace(/'/g,"\\'"))}')" style="padding:10px; border-bottom:1px solid #eee; ${usedSet.has(i.q)?'opacity:0.3;':'cursor:pointer;'}"><strong>${hEsc(i.a)}</strong><br><small>${hEsc(i.q)}</small></div>`).join('');
     }
 
     function applyQuiz(q, a) {
         clearInterval(timer); currentQuiz = { q, a }; revealed = []; 
-        usedSet.add(q); db.ref('usedSet').set([...usedSet]); // DB同期
+        usedSet.add(q); db.ref('usedSet').set([...usedSet]);
         history.push({q, a});
         document.getElementById('admin-q-full').innerText = q; document.getElementById('admin-a-full').innerText = a;
         db.ref().update({ status: "waiting", winner: "", correctList: null, wrongList: null, boardAnswers: null, typing: null, finalReveal: false, isGameSet: false });
@@ -256,14 +239,7 @@
 
     function openType(t) {
         db.ref('status').set('active');
-        const m = { 
-            kanji:/[\u4E00-\u9FFF]/, 
-            hira:/[\u3040-\u309F]/, 
-            kana:/[\u30A0-\u30FF]/, 
-            num:/[0-9０-９]/, 
-            alp:/[a-zA-Zａ-ｚＡ-Ｚ]/, 
-            sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/ 
-        };
+        const m = { kanji:/[\u4E00-\u9FFF]/, hira:/[\u3040-\u309F]/, kana:/[\u30A0-\u30FF]/, num:/[0-9０-９]/, alp:/[a-zA-Zａ-ｚＡ-Ｚ]/, sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/ };
         let count = 0; Array.from(currentQuiz.q).forEach((c, i) => { if (m[t] && m[t].test(c) && !revealed.includes(i)) { revealed.push(i); count++; } });
         if (count > 0) requestSound('type'); sync();
     }
@@ -275,6 +251,7 @@
             const d = snap.val(), p = targetPlayer || d.winner; if(!p) return;
             const pt = parseInt(document.getElementById('currentPoint').value) || 1;
             const sn = safeName(p);
+            // ★正誤判定音の発火
             if(isOK) { requestSound('correct'); db.ref('scores/'+sn).transaction(s => (s||0)+pt); db.ref('correctList/'+sn).set(true); }
             else { requestSound('wrong'); db.ref('scores/'+sn).transaction(s => (s||0)-1); db.ref('waits/'+sn).set(2); db.ref('wrongList/'+sn).set(true); }
             if(d.mode !== 'all_board') db.ref().update({ winner: "", status: "active" });
@@ -283,28 +260,23 @@
 
     function resumeQuiz() { db.ref('status').set('active'); if(revealed.length < currentQuiz.q.length) startQuiz(); }
     function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
-    function resetAll() { if (confirm("スコア・出題履歴を含む全データをリセットします。本当によろしいですか？")) { history = []; db.ref().set({ status: "idle", mode: "push", rankVisible: true, isGameSet: false, usedSet: [] }); } }
+    function resetAll() { if (confirm("全データをリセットしますか？")) { history = []; db.ref().set({ status: "idle", mode: "push", rankVisible: true, isGameSet: false, usedSet: [] }); } }
 
-    // --- プレイヤー機能 ---
     function initPlayer() {
         const ni = document.getElementById('p-name'), bUI = document.getElementById('board-input-ui'), sArea = document.getElementById('player-status-area'), goS = document.getElementById('player-gameover');
         db.ref().on('value', snap => {
             const d = snap.val() || {}; const name = ni.value.trim(); const sn = safeName(name);
             const w = (d.waits && d.waits[sn]) || 0;
             const isCorrected = d.correctList && d.correctList[sn];
-            
             document.getElementById('p-score').innerText = d.scores?.[sn] || 0;
             if(d.isGameSet) { goS.style.display = 'flex'; return; } else goS.style.display = 'none';
-
             const isWinner = (d.winner === name && name !== "");
             const showBoard = (d.mode === 'all_board' && d.status !== 'waiting') || (isWinner && (d.mode === 'board' || d.mode === 'all_board'));
             bUI.style.display = showBoard ? 'block' : 'none';
-
             if(isCorrected) sArea.innerHTML = "✅ 正解済み！";
             else if(isWinner) sArea.innerHTML = "🎤 解答権あり！";
             else if(w > 0) sArea.innerHTML = "❌ お休み中 (" + w + ")";
             else sArea.innerHTML = d.status === 'active' ? "受付中" : "待機中";
-
             document.getElementById('remote-button').disabled = !(name && w === 0 && d.status === 'active' && !d.winner && !isCorrected && d.mode !== 'all_board');
         });
     }
@@ -319,7 +291,6 @@
         db.ref('winner').transaction(c => c ? undefined : name, (err, ok) => { if(ok) db.ref('status').set('pushed'); }); 
     }
 
-    // --- 視聴者画面 (Sub Window) ---
     function openSubWindow() {
         subWindow = window.open("", "QuizSub", "width=1200,height=800");
         subWindow.document.write(`<html><head><style>
@@ -342,8 +313,14 @@
             <div id="main-container"><div id="text"></div><div id="ans"></div><div id="board-area"></div></div>
             <div id="rank-side"><h2>RANKING</h2><div id="rank-list"></div></div>
             <script>
-                const sounds = { push: new Audio('sounds/push.mp3'), correct: new Audio('sounds/correct.mp3'), wrong: new Audio('sounds/wrong.mp3'), type: new Audio('sounds/type.mp3') };
-                window.play = (s) => { if(sounds[s]) { sounds[s].currentTime=0; sounds[s].play().catch(e=>0); } };
+                // ★音源定義の完全化
+                const sounds = { 
+                    push: new Audio('sounds/push.mp3'), 
+                    correct: new Audio('sounds/correct.mp3'), 
+                    wrong: new Audio('sounds/wrong.mp3'), 
+                    type: new Audio('sounds/type.mp3') 
+                };
+                window.play = (s) => { if(sounds[s]) { sounds[s].currentTime=0; sounds[s].play().catch(e=>console.log("Audio Play Blocked")); } };
                 window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerHTML=q; };
                 window.toggleRank = (v) => { document.getElementById('rank-side').style.opacity = v ? '1' : '0'; };
                 window.updateRank = (list) => { document.getElementById('rank-list').innerHTML = list.map(([n,v]) => '<div style="display:flex;justify-content:space-between;font-size:1.6rem;padding:8px 0;border-bottom:1px solid #333;"><span>'+n+'</span><span>'+v+'pt</span></div>').join(''); };
