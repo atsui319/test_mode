@@ -2,33 +2,24 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Final Stable</title>
+    <title>QuizConsole Pro - Final Sound Specs</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
-        :root { --bg: #f0f2f5; --primary: #3498db; --danger: #e74c3c; --success: #2ecc71; --dark: #2c3e50; --test: #6c5ce7; --warn: #e67e22; }
+        :root { --bg: #f0f2f5; --primary: #3498db; --danger: #e74c3c; --success: #2ecc71; --dark: #2c3e50; --test: #6c5ce7; }
         body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 10px; }
-        
         .page-section { display: none; } 
         #role-ui { display: block; }
-
         .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 15px; }
         .admin-flex { display: flex; gap: 15px; max-width: 1600px; margin: 0 auto; }
-        
-        #display { font-size: 1.8rem; background: var(--dark); color: white; padding: 20px; border-radius: 8px; min-height: 4em; display: flex; flex-wrap: wrap; margin-bottom: 15px; }
+        #display { font-size: 1.8rem; background: var(--dark); color: white; padding: 20px; border-radius: 8px; min-height: 4em; display: flex; flex-wrap: wrap; margin-bottom: 15px; border: 4px solid #444; }
         #display span { border-bottom: 2px solid #555; margin-right: 2px; min-width: 0.8em; text-align: center; }
         #display span.hidden { visibility: hidden; }
-
-        .sidebar { width: 400px; background: white; padding: 15px; border-radius: 12px; height: 90vh; overflow-y: auto; }
-        .btn-genre { padding: 8px; font-size: 0.8rem; cursor: pointer; flex: 1; border: 1px solid #ccc; }
+        .sidebar { width: 380px; background: white; padding: 15px; border-radius: 12px; height: 90vh; overflow-y: auto; }
+        .btn-genre { padding: 8px; font-size: 0.75rem; cursor: pointer; flex: 1; border: 1px solid #ccc; background: #fff; }
         .btn-genre.active { background: var(--primary); color: white; }
-
-        /* ボード回答リスト */
-        .board-ans-item { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; margin-top: 5px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
-        
-        /* 解答者ボタン */
+        .type-btns button { padding: 8px 10px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; font-weight: bold; font-size: 0.85rem; }
         #remote-button { width: 220px; height: 220px; border-radius: 50%; font-size: 2rem; font-weight: bold; cursor: pointer; border: 10px solid #eee; }
-        #remote-button:disabled { background: #ccc; color: #888; }
         #remote-button:not(:disabled) { background: var(--danger); color: white; border-color: #c0392b; }
     </style>
 </head>
@@ -37,58 +28,58 @@
 <div id="role-ui" class="page-section">
     <div class="container" style="max-width: 400px; text-align: center; margin: 100px auto;">
         <h2>QuizConsole Pro</h2>
-        <button style="width:100%; padding:20px; margin-bottom:15px; cursor:pointer; font-weight:bold;" onclick="switchPage('admin')">💻 管理者コンソール</button>
-        <button style="width:100%; padding:20px; background:#9b59b6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;" onclick="switchPage('player')">📱 回答者端末</button>
+        <button style="width:100%; padding:20px; margin-bottom:15px;" onclick="switchPage('admin')">💻 管理者コンソール</button>
+        <button style="width:100%; padding:20px; background:var(--test); color:white; border:none; border-radius:8px;" onclick="switchPage('player')">📱 回答者端末</button>
     </div>
 </div>
 
 <div id="admin-ui" class="page-section">
     <div class="admin-flex">
-        <div class="container" style="flex: 1;">
-            <div style="display:flex; gap:10px; margin-bottom:15px;">
-                <button onclick="openSubWindow()" style="background:#8e44ad; color:white; flex:1; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;">📺 視聴者画面を起動</button>
-                <button onclick="resetAll()" style="background:var(--danger); color:white; padding:10px; border-radius:5px; cursor:pointer;">🚮 リセット</button>
-            </div>
-            
-            <div style="background:#fff3cd; padding:15px; border-radius:10px; text-align:center; margin-bottom:15px; border:2px solid #f1c40f;">
-                <div style="margin-bottom:10px;">
-                    <select id="gameMode" onchange="db.ref('mode').set(this.value)">
-                        <option value="push">⚡ 早押しモード</option>
-                        <option value="board">📝 ボードモード</option>
-                    </select>
+        <div style="flex: 1;">
+            <div class="container">
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <button onclick="openSubWindow()" style="background:#8e44ad; color:white; flex:1; padding:12px; border-radius:8px; border:none; cursor:pointer;">📺 視聴者画面を起動</button>
+                    <button onclick="resetAll()" style="background:var(--danger); color:white; padding:10px; border-radius:8px; border:none;">🚮 リセット</button>
                 </div>
-                <div id="activePlayer" style="font-size:2.5rem; font-weight:bold; color:var(--danger); margin-bottom:10px;">---</div>
                 
-                <div id="boardResults" style="display:none; text-align:left; background:white; padding:10px; border-radius:8px; margin-bottom:10px; max-height:200px; overflow-y:auto;"></div>
-
-                <div style="display:flex; gap:10px;">
-                    <button style="flex:1; height:60px; background:var(--success); color:white; font-size:1.5rem; border-radius:8px; cursor:pointer;" onclick="judge(true)">⭕ 正解</button>
-                    <button style="flex:1; height:60px; background:var(--danger); color:white; font-size:1.5rem; border-radius:8px; cursor:pointer;" onclick="judge(false)">❌ 誤答</button>
+                <div style="background:#fff3cd; padding:15px; border-radius:10px; text-align:center; border:2px solid #f1c40f; margin-bottom:15px;">
+                    <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
+                        <select id="gameMode" onchange="db.ref('mode').set(this.value)">
+                            <option value="push">⚡ 早押しモード</option>
+                            <option value="board">📝 ボードモード</option>
+                        </select>
+                        <button onclick="toggleRanking()" style="cursor:pointer;">🏆 ランキング切替</button>
+                    </div>
+                    <div id="activePlayer" style="font-size:2.8rem; font-weight:bold; color:var(--danger); min-height:1.2em;">---</div>
+                    <div id="boardResults" style="display:none; text-align:left; background:white; padding:10px; border-radius:8px; margin:10px 0; max-height:180px; overflow-y:auto; border:1px solid #ddd;"></div>
+                    <div style="display:flex; gap:10px;">
+                        <button style="flex:1; height:65px; background:var(--success); color:white; font-size:1.8rem; border-radius:8px; border:none; cursor:pointer;" onclick="judge(true)">⭕ 正解</button>
+                        <button style="flex:1; height:65px; background:var(--danger); color:white; font-size:1.8rem; border-radius:8px; border:none; cursor:pointer;" onclick="judge(false)">❌ 誤答</button>
+                    </div>
+                    <div style="margin-top:10px; display:flex; gap:5px;">
+                        <button onclick="resumeQuiz()" style="flex:1; padding:12px;">▶ 続行</button>
+                        <button onclick="revealAnswer()" style="flex:1; padding:12px; background:var(--test); color:white; border:none; border-radius:5px; font-weight:bold;">📢 答え公開</button>
+                    </div>
                 </div>
-                <div style="margin-top:10px;">
-                    <button onclick="resumeQuiz()" style="width:48%; padding:10px;">▶ 続行</button>
-                    <button onclick="revealAnswer()" style="width:48%; padding:10px; background:var(--test); color:white;">📢 答え公開</button>
+
+                <div class="type-btns" style="margin-bottom:10px; display:flex; flex-wrap:wrap; gap:5px; background:#e9ecef; padding:10px; border-radius:8px;">
+                    <button onclick="openType('kanji')">漢字</button><button onclick="openType('hira')">ひら</button><button onclick="openType('kana')">カナ</button>
+                    <button onclick="openType('num')">数字</button><button onclick="openType('alp')">英字</button><button onclick="openType('sym')">記号</button>
+                    <button onclick="openAnsChars()" style="background:#f39c12; color:white; border:none;">〇を公開</button>
+                    <button onclick="openAll()" style="background:#555; color:white; border:none; margin-left:auto;">全表示</button>
                 </div>
-            </div>
-
-            <div id="display"></div>
-
-            <div class="container" style="background:#eee;">
-                <strong>正解：</strong> <span id="ans-hint" style="color:red; font-weight:bold;">-</span><br>
-                <button onclick="startQuiz()" style="width:100%; padding:15px; margin-top:10px; background:var(--primary); color:white; font-size:1.2rem; border-radius:8px; cursor:pointer;">読上開始</button>
-            </div>
-
-            <div style="margin-top:15px; display:flex; flex-wrap:wrap; gap:5px;">
-                <button onclick="openType('kanji')">漢字</button><button onclick="openType('hira')">ひら</button><button onclick="openType('kana')">カナ</button>
-                <button onclick="openType('num')">数</button><button onclick="openType('alp')">英</button><button onclick="openType('sym')">記号</button>
-                <button onclick="openAll()" style="background:#555; color:white;">全開</button>
+                <div id="display"></div>
+                <div class="container" style="background:#eee; border:1px solid #ccc;">
+                    <strong>正解：</strong> <span id="ans-hint" style="color:red; font-weight:bold; font-size:1.2rem;">-</span><br>
+                    <button onclick="startQuiz()" style="width:100%; padding:18px; margin-top:10px; background:var(--primary); color:white; font-size:1.4rem; border-radius:8px; border:none; font-weight:bold;">読上開始</button>
+                </div>
             </div>
         </div>
 
         <div class="sidebar">
-            <div id="score-list" style="font-size:0.9rem; margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:10px;"></div>
+            <div id="score-list" style="font-size:0.9rem; margin-bottom:15px; border-bottom:2px solid var(--primary); padding-bottom:10px;"></div>
             <div id="genre-tabs" style="display:flex; flex-wrap:wrap; gap:2px; margin-bottom:10px;"></div>
-            <input type="text" id="search" placeholder="検索..." style="width:100%; padding:8px; margin-bottom:10px;" oninput="renderList()">
+            <input type="text" id="search" placeholder="🔍 問題検索..." style="width:100%; padding:10px; border-radius:4px; border:1px solid #ccc;" oninput="renderList()">
             <div id="quiz-list-area"></div>
         </div>
     </div>
@@ -96,15 +87,13 @@
 
 <div id="player-ui" class="page-section">
     <div class="container" style="max-width: 500px; margin: 20px auto; text-align: center;">
-        <div style="font-size:2rem; font-weight:bold;">Score: <span id="p-score">0</span></div>
-        <div id="p-wait" style="color:red; font-weight:bold; height:1.5em; margin:10px;"></div>
-        <input type="text" id="p-name" placeholder="名前を入力" style="width:80%; padding:15px; font-size:1.2rem; text-align:center; margin-bottom:20px; border:2px solid #ddd; border-radius:8px;">
-        
+        <div style="font-size:2.5rem; font-weight:bold;">Score: <span id="p-score">0</span></div>
+        <div id="p-wait" style="color:var(--danger); font-weight:bold; height:1.5em; margin:10px;"></div>
+        <input type="text" id="p-name" placeholder="名前を入力" style="width:85%; padding:15px; font-size:1.3rem; text-align:center; border-radius:10px; border:3px solid #ddd; margin-bottom:20px;">
         <div id="board-input-ui" style="display:none; margin-bottom:20px;">
-            <input type="text" id="board-text" placeholder="答えを書いてください" style="width:80%; padding:15px; font-size:1.5rem; border:2px solid var(--success); border-radius:8px;"><br><br>
-            <button onclick="sendBoardAns()" style="padding:10px 30px; background:var(--success); color:white; border:none; border-radius:5px; cursor:pointer;">回答を送信</button>
+            <input type="text" id="board-text" placeholder="ここに答えを入力" style="width:85%; padding:15px; font-size:1.8rem; border:3px solid var(--success); border-radius:10px;"><br><br>
+            <button onclick="sendBoardAns()" style="padding:15px 40px; background:var(--success); color:white; border:none; border-radius:10px; font-weight:bold;">回答を送信</button>
         </div>
-
         <button id="remote-button" onclick="pushBtn()">PUSH!</button>
     </div>
 </div>
@@ -113,6 +102,15 @@
     const firebaseConfig = { databaseURL: "https://realtime-database-c0015-default-rtdb.firebaseio.com/" };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+
+    // 音声読み込み
+    const sounds = {
+        push: new Audio('push.mp3'),
+        correct: new Audio('correct.mp3'),
+        wrong: new Audio('wrong.mp3'),
+        type: new Audio('type.mp3')
+    };
+    function play(s) { if(!sounds[s]) return; sounds[s].currentTime = 0; sounds[s].play().catch(()=>{}); }
 
     const URLS = {
         ori: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFuFjp8CnBMqfdRPKbQ_FPC6zWwgdQBVdTDsdWTHbBN92vXADxbVTmHdLm_C3Yn-Eeu5ZWm9WXRb0c/pub?output=csv",
@@ -123,22 +121,15 @@
         sport: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSJYls3O8_98SKNWqx34c0V5HLIaXdxxA8v4E3c1iwrTFZBL1TSxzeem9AbKZKYfMkQEcu7bECcsgVo/pub?output=csv"
     };
 
-    let masterData = { all: [] };
-    let currentPool = [], usedSet = new Set(), currentQuiz = { q: "", a: "" }, revealed = [];
-    let timer = null, subWindow = null, curWinner = "", curGenre = "all", lastStatus = "";
+    let masterData = { all: [] }, currentPool = [], usedSet = new Set(), currentQuiz = { q: "", a: "" }, revealed = [];
+    let timer = null, subWindow = null, curWinner = "", lastStatus = "", rankVisible = true;
 
     function switchPage(role) {
         document.querySelectorAll('.page-section').forEach(el => el.style.display = 'none');
-        if (role === 'admin') {
-            document.getElementById('admin-ui').style.display = 'block';
-            initAdmin();
-        } else {
-            document.getElementById('player-ui').style.display = 'block';
-            initPlayer();
-        }
+        document.getElementById(role + '-ui').style.display = 'block';
+        role === 'admin' ? initAdmin() : initPlayer();
     }
 
-    // --- 管理者 ---
     async function initAdmin() {
         const tabs = document.getElementById('genre-tabs');
         tabs.innerHTML = '<button class="btn-genre active" onclick="setGenre(\'all\')">全</button>' + 
@@ -161,8 +152,8 @@
             const d = snap.val() || {};
             curWinner = d.winner || "";
             document.getElementById('activePlayer').innerText = curWinner || "---";
+            rankVisible = d.rankVisible !== false;
             
-            // ボード結果表示
             const bArea = document.getElementById('boardResults');
             if(d.mode === 'board' && d.boardAnswers) {
                 bArea.style.display = 'block';
@@ -173,21 +164,24 @@
                     </div>`).join('');
             } else { bArea.style.display = 'none'; }
 
-            if(d.status === "pushed" && lastStatus !== "pushed") clearInterval(timer);
+            if(d.status === "pushed" && lastStatus !== "pushed") { clearInterval(timer); play('push'); }
             lastStatus = d.status;
-            if(subWindow) subWindow.syncBoard(d);
+            if(subWindow) { subWindow.syncBoard(d); subWindow.toggleRank(rankVisible); }
         });
 
         db.ref('scores').on('value', snap => {
             const s = snap.val() || {};
-            document.getElementById('score-list').innerHTML = "🏆 スコア: " + Object.entries(s).sort((a,b)=>b[1]-a[1]).map(([n,v]) => `${n}(${v})`).join(' / ');
+            const sorted = Object.entries(s).sort((a,b)=>b[1]-a[1]);
+            document.getElementById('score-list').innerHTML = "🏆 スコア: " + sorted.map(([n,v]) => `${n}(${v})`).join(' / ');
+            if(subWindow) subWindow.updateRank(sorted);
         });
     }
 
+    function toggleRanking() { rankVisible = !rankVisible; db.ref('rankVisible').set(rankVisible); }
+
     function setGenre(g) {
-        curGenre = g;
-        document.querySelectorAll('.btn-genre').forEach(b => b.classList.remove('active'));
-        currentPool = [...(masterData[g] || [])].sort(() => Math.random() - 0.5).slice(0, 15);
+        document.querySelectorAll('.btn-genre').forEach(b => b.classList.toggle('active', b.innerText === g || (g === 'all' && b.innerText === '全')));
+        currentPool = [...(masterData[g] || [])].sort(() => Math.random() - 0.5).slice(0, 20);
         renderList();
     }
 
@@ -196,8 +190,8 @@
         let list = currentPool;
         if(q) list = list.filter(i => i.q.includes(q) || i.a.includes(q));
         document.getElementById('quiz-list-area').innerHTML = list.map(i => `
-            <div onclick="applyQuiz('${i.q.replace(/'/g,"\\'")}', '${i.a.replace(/'/g,"\\'")}')" style="padding:8px; border-bottom:1px solid #eee; cursor:pointer; ${usedSet.has(i.q)?'opacity:0.3':''}">
-                <strong>${i.a}</strong><br><small>${i.q.substring(0,40)}...</small>
+            <div onclick="applyQuiz('${i.q.replace(/'/g,"\\'")}', '${i.a.replace(/'/g,"\\'")}')" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer; ${usedSet.has(i.q)?'opacity:0.3':''}">
+                <strong>${i.a}</strong><br><small>${i.q.substring(0,50)}...</small>
             </div>`).join('');
     }
 
@@ -205,8 +199,8 @@
         clearInterval(timer);
         currentQuiz = { q, a }; revealed = []; usedSet.add(q);
         db.ref('waits').once('value', snap => {
-            const w = snap.val() || {}; const up = {};
-            Object.entries(w).forEach(([n, v]) => { if(v > 0) up[n] = v - 1; });
+            const w = snap.val() || {}, up = {};
+            Object.entries(w).forEach(([n, v]) => { up[n] = Math.max(0, v - 1); });
             db.ref('waits').update(up);
         });
         db.ref().update({ status: "idle", winner: "", correctList: null, wrongList: null, boardAnswers: null, finalReveal: false });
@@ -235,11 +229,13 @@
         const p = targetPlayer || curWinner;
         if(!p) return;
         if(isOK) {
+            play('correct');
             db.ref('scores/' + p).transaction(s => (s||0) + 2);
             db.ref('correctList/' + p).set(true);
             if(subWindow) subWindow.showBanner(p + " 正解！", "#2ecc71");
             db.ref().update({ status: "idle", winner: "" });
         } else {
+            play('wrong');
             db.ref('scores/' + p).transaction(s => (s||0) - 1);
             db.ref('waits/' + p).set(2);
             db.ref('wrongList/' + p).set(true);
@@ -248,19 +244,28 @@
         }
     }
 
-    function resumeQuiz() { db.ref('status').set('active'); startQuiz(); }
-    function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
-
     function openType(t) {
-        const m = { kanji:/[\u4E00-\u9FFF]/, hira:/[\u3040-\u309F]/, kana:/[\u30A0-\u30FF]/, num:/[0-9０-９]/, alp:/[a-z]/i,
-                    sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/ };
+        play('type');
+        const m = { 
+            kanji:/[\u4E00-\u9FFF]/, hira:/[\u3040-\u309F]/, kana:/[\u30A0-\u30FF]/, num:/[0-9０-９]/, alp:/[a-zＡ-Ｚ]/i,
+            sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/
+        };
         Array.from(currentQuiz.q).forEach((c,i) => { if(m[t] && m[t].test(c)) if(!revealed.includes(i)) revealed.push(i); });
         sync();
     }
-    function openAll() { revealed = Array.from(currentQuiz.q).map((_,i)=>i); sync(); }
-    function resetAll() { if(confirm("初期化しますか？")) db.ref().set({ status: "idle", mode: "push" }); }
 
-    // --- 解答者 ---
+    function openAnsChars() {
+        const ansSet = new Set(Array.from(currentQuiz.a));
+        Array.from(currentQuiz.q).forEach((c,i) => { if(ansSet.has(c)) if(!revealed.includes(i)) revealed.push(i); });
+        sync();
+    }
+
+    function resumeQuiz() { db.ref('status').set('active'); startQuiz(); }
+    function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
+    function openAll() { revealed = Array.from(currentQuiz.q).map((_,i)=>i); sync(); }
+    function resetAll() { if(confirm("完全リセットしますか？")) db.ref().set({ status: "idle", mode: "push", rankVisible: true }); }
+
+    // 解答者
     function initPlayer() {
         const btn = document.getElementById('remote-button');
         const bUI = document.getElementById('board-input-ui');
@@ -270,25 +275,19 @@
             const w = (d.waits && d.waits[name]) || 0;
             document.getElementById('p-score').innerText = (d.scores && d.scores[name]) || 0;
             document.getElementById('p-wait').innerText = w > 0 ? "あと " + w + " 回休み" : "";
-            
-            // ボード入力判定
             if(d.mode === 'board' && d.status === 'pushed' && d.winner === name) {
                 bUI.style.display = 'block'; btn.style.display = 'none';
             } else {
                 bUI.style.display = 'none'; btn.style.display = 'inline-block';
             }
-
-            if(name && w === 0 && !d.winner) { btn.disabled = false; } else { btn.disabled = true; }
+            btn.disabled = !(name && w === 0 && !d.winner);
         });
     }
 
     function sendBoardAns() {
         const name = document.getElementById('p-name').value.trim();
         const text = document.getElementById('board-text').value.trim();
-        if(!text) return;
-        db.ref('boardAnswers/' + name).set(text);
-        db.ref().update({ status: "active", winner: "" });
-        document.getElementById('board-text').value = "";
+        if(text) { db.ref('boardAnswers/' + name).set(text); db.ref().update({ status: "active", winner: "" }); document.getElementById('board-text').value = ""; }
     }
 
     function pushBtn() {
@@ -297,26 +296,35 @@
         db.ref('winner').transaction(cur => { if(!cur) return name; return; }, (err, ok) => { if(ok) db.ref('status').set('pushed'); });
     }
 
-    // --- 視聴者 ---
+    // 視聴者
     function openSubWindow() {
-        subWindow = window.open("", "QuizSub", "width=1100,height=750");
-        subWindow.document.write(`<html><body style="background:#000;color:#fff;text-align:center;font-family:sans-serif;margin:0;overflow:hidden;">
-            <div id="banner" style="display:none;font-size:5rem;padding:20px;background:#c0392b;position:fixed;top:0;width:100%;z-index:10;"></div>
-            <div style="height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-                <div id="text" style="font-size:3.5rem;line-height:1.4;width:90%;"></div>
-                <div id="ans" style="display:none;font-size:5rem;color:#f1c40f;border:8px solid #f1c40f;padding:20px;margin-top:20px;"></div>
-                <div id="board-area" style="display:flex;flex-wrap:wrap;justify-content:center;margin-top:20px;"></div>
+        subWindow = window.open("", "QuizSub", "width=1200,height=800");
+        subWindow.document.write(`<html><head><style>
+            body{background:#000;color:#fff;font-family:sans-serif;margin:0;overflow:hidden;display:flex;}
+            #main-container{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;}
+            #rank-side{width:320px;background:#111;border-left:3px solid #333;padding:25px;display:block;}
+            #banner{display:none;font-size:5rem;padding:20px;background:#c0392b;position:absolute;top:0;width:100%;z-index:10;text-align:center;font-weight:bold;}
+            #text{font-size:3.5rem;line-height:1.4;width:90%;text-align:center;font-weight:bold;}
+            #ans{display:none;font-size:5.5rem;color:#f1c40f;border:10px solid #f1c40f;padding:20px;margin-top:25px;text-align:center;font-weight:bold;border-radius:20px;}
+            #board-area{display:flex;flex-wrap:wrap;justify-content:center;margin-top:30px;gap:15px;}
+            .rank-item{margin-bottom:12px;font-size:1.6rem;border-bottom:1px solid #444;padding-bottom:8px;display:flex;justify-content:space-between;}
+        </style></head><body>
+            <div id="main-container">
+                <div id="banner"></div><div id="text"></div><div id="ans"></div><div id="board-area"></div>
             </div>
+            <div id="rank-side"><h2 style="color:#3498db;border-bottom:2px solid #555;">RANKING</h2><div id="rank-list"></div></div>
             <script>
-                window.showBanner = (m,c) => { const b=document.getElementById('banner'); b.innerText=m; b.style.background=c; b.style.display='block'; };
+                window.showBanner = (m,c) => { const b=document.getElementById('banner'); b.innerText=m; b.style.background=c; b.style.display='block'; setTimeout(()=>b.style.display='none',2000); };
                 window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerText=q; };
+                window.toggleRank = (v) => { document.getElementById('rank-side').style.display = v ? 'block' : 'none'; };
+                window.updateRank = (list) => { document.getElementById('rank-list').innerHTML = list.map(([n,v]) => '<div class="rank-item"><span>'+n+'</span><span>'+v+'pt</span></div>').join(''); };
                 window.syncBoard = (d) => {
                     const area = document.getElementById('board-area');
                     if(d.mode === 'board' && d.boardAnswers) {
                         area.innerHTML = Object.entries(d.boardAnswers).map(([n, ans]) => {
                             const isFin = d.finalReveal || (d.correctList && d.correctList[n]);
-                            return '<div style="background:#222;border:2px solid #555;margin:10px;padding:15px;border-radius:10px;min-width:150px;">'+
-                                   '<div>'+n+'</div><div style="font-size:2rem;color:#f1c40f;">'+(isFin ? ans : "？？？")+'</div></div>';
+                            return '<div style="background:#222;border:3px solid #555;padding:20px;border-radius:15px;min-width:180px;text-align:center;">'+
+                                   '<div style="font-size:1.2rem;color:#aaa;">'+n+'</div><div style="font-size:2.5rem;color:#f1c40f;font-weight:bold;">'+(isFin ? ans : "？？？")+'</div></div>';
                         }).join('');
                     } else { area.innerHTML = ""; }
                 };
