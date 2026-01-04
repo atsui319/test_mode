@@ -91,9 +91,18 @@
             </div>
         </div>
         <div class="sidebar">
-            <div class="sidebar-section" style="height:40%"><h3 style="margin:0; font-size:1rem; color:var(--primary);">👤 プレイヤー管理</h3><div id="full-mgr-list"></div></div>
-            <div class="sidebar-section" style="flex:1"><h3 style="margin:0; font-size:1rem; color:var(--primary);">📚 問題検索</h3><div id="genre-tabs" style="display:flex; flex-wrap:wrap; gap:2px; margin:5px 0;"></div><input type="text" id="search" placeholder="キーワード検索..." style="width:100%; padding:8px; box-sizing:border-box;" oninput="renderList()"><div id="quiz-list-area"></div></div>
-        </div>
+    <div class="sidebar-section" style="height:40%">
+        <h3 style="margin:0; font-size:1rem; color:var(--primary);">👤 プレイヤー管理</h3>
+        <div id="full-mgr-list"></div>
+    </div>
+    
+    <div class="sidebar-section" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+        <h3 style="margin:0; font-size:1rem; color:var(--primary);">📚 問題検索</h3>
+        <div id="genre-tabs" style="display:flex; flex-wrap:wrap; gap:2px; margin:5px 0;"></div>
+        <input type="text" id="search" placeholder="キーワード検索..." style="width:100%; padding:8px; box-sizing:border-box; margin-bottom:5px;" oninput="renderList()">
+        
+        <div id="quiz-list-area" style="flex: 1; overflow-y: auto; border: 1px solid #eee; background: #fff; padding: 5px;">
+            </div>
     </div>
 </div>
 
@@ -187,12 +196,28 @@
     function toggleRanking() { db.ref('rankVisible').transaction(v => v === undefined ? false : !v); }
     function setGenre(g) { activeGenre = g; renderList(); }
     function renderList() {
-        const s = document.getElementById('search').value.toLowerCase();
-        let list = masterData[activeGenre] || [];
-        if(s) list = list.filter(i => i.q.includes(s) || i.a.includes(s));
-        else list = [...list].sort(() => Math.random() - 0.5).slice(0, 30);
-        document.getElementById('quiz-list-area').innerHTML = list.map(i => `<div class="quiz-item" onclick="applyQuiz('${hEsc(i.q.replace(/'/g,"\\'"))}', '${hEsc(i.a.replace(/'/g,"\\'"))}')" style="padding:10px; border-bottom:1px solid #eee; ${usedSet.has(i.q)?'opacity:0.3;':'cursor:pointer;'}"><strong>${hEsc(i.a)}</strong><br><small>${hEsc(i.q)}</small></div>`).join('');
+    const s = document.getElementById('search').value.toLowerCase();
+    const area = document.getElementById('quiz-list-area');
+    let list = masterData[activeGenre] || [];
+    
+    if(s) {
+        list = list.filter(i => i.q.includes(s) || i.a.includes(s));
+    } else {
+        // 検索していない時はランダムに30件（または全部）表示
+        list = [...list].sort(() => Math.random() - 0.5).slice(0, 50);
     }
+    
+    area.innerHTML = list.map(i => `
+        <div class="quiz-item" onclick="applyQuiz('${hEsc(i.q.replace(/'/g,"\\'"))}', '${hEsc(i.a.replace(/'/g,"\\'"))}')" 
+             style="padding:10px; border-bottom:1px solid #eee; ${usedSet.has(i.q)?'opacity:0.3;':'cursor:pointer;'}">
+            <strong style="color:var(--dark);">${hEsc(i.a)}</strong><br>
+            <small style="color:#666;">${hEsc(i.q)}</small>
+        </div>
+    `).join('');
+    
+    // スクロール位置をリセット
+    area.scrollTop = 0;
+}
     function applyQuiz(q, a) { clearInterval(timer); currentQuiz = { q, a }; revealed = []; usedSet.add(q); db.ref('usedSet').set([...usedSet]); history.push({q, a}); document.getElementById('admin-q-full').innerText = q; document.getElementById('admin-a-full').innerText = a; db.ref().update({ status: "waiting", winner: "", correctList: null, wrongList: null, boardAnswers: null, typing: null, finalReveal: false, isGameSet: false }); if(subWindow) subWindow.resetForNext(); sync(true); renderList(); }
     function startQuiz() { db.ref('status').set('active'); const speed = parseInt(document.getElementById('readSpeed').value); clearInterval(timer); timer = setInterval(() => { if(revealed.length < currentQuiz.q.length) { let n = 0; while(revealed.includes(n)) n++; revealed.push(n); sync(); } else clearInterval(timer); }, speed); }
     function sync(forceHideSub = false) { const h = Array.from(currentQuiz.q).map((c, i) => revealed.includes(i) ? `<span>${hEsc(c)}</span>` : `<span class="hidden">${hEsc(c)}</span>`).join(''); document.getElementById('display').innerHTML = h; if(subWindow && !forceHideSub) subWindow.document.getElementById('text').innerHTML = h; }
@@ -323,4 +348,5 @@
 </script>
 </body>
 </html>
+
 
