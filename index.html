@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - Final Sound Specs</title>
+    <title>QuizConsole Pro - Final Control</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -57,7 +57,7 @@
                         <button style="flex:1; height:65px; background:var(--danger); color:white; font-size:1.8rem; border-radius:8px; border:none; cursor:pointer;" onclick="judge(false)">❌ 誤答</button>
                     </div>
                     <div style="margin-top:10px; display:flex; gap:5px;">
-                        <button onclick="resumeQuiz()" style="flex:1; padding:12px;">▶ 続行</button>
+                        <button onclick="resumeQuiz()" style="flex:1; padding:12px;">▶ 続行/開始</button>
                         <button onclick="revealAnswer()" style="flex:1; padding:12px; background:var(--test); color:white; border:none; border-radius:5px; font-weight:bold;">📢 答え公開</button>
                     </div>
                 </div>
@@ -71,7 +71,7 @@
                 <div id="display"></div>
                 <div class="container" style="background:#eee; border:1px solid #ccc;">
                     <strong>正解：</strong> <span id="ans-hint" style="color:red; font-weight:bold; font-size:1.2rem;">-</span><br>
-                    <button onclick="startQuiz()" style="width:100%; padding:18px; margin-top:10px; background:var(--primary); color:white; font-size:1.4rem; border-radius:8px; border:none; font-weight:bold;">読上開始</button>
+                    <button onclick="startQuiz()" style="width:100%; padding:18px; margin-top:10px; background:var(--primary); color:white; font-size:1.4rem; border:none; border-radius:8px; font-weight:bold;">自動読上開始</button>
                 </div>
             </div>
         </div>
@@ -103,7 +103,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 音声読み込み
     const sounds = {
         push: new Audio('push.mp3'),
         correct: new Audio('correct.mp3'),
@@ -203,14 +202,16 @@
             Object.entries(w).forEach(([n, v]) => { up[n] = Math.max(0, v - 1); });
             db.ref('waits').update(up);
         });
-        db.ref().update({ status: "idle", winner: "", correctList: null, wrongList: null, boardAnswers: null, finalReveal: false });
+        // statusを 'waiting' にして視聴者画面に表示させない
+        db.ref().update({ status: "waiting", winner: "", correctList: null, wrongList: null, boardAnswers: null, finalReveal: false });
         document.getElementById('ans-hint').innerText = a;
         if(subWindow) subWindow.resetForNext();
-        sync(); renderList();
+        sync(true); // 管理画面だけ更新、視聴者はstatus=waitingにより非表示
+        renderList();
     }
 
     function startQuiz() {
-        db.ref('status').set('active');
+        db.ref('status').set('active'); // activeにして早押し有効化
         timer = setInterval(() => {
             if(revealed.length < currentQuiz.q.length) {
                 let n = 0; while(revealed.includes(n)) n++;
@@ -219,10 +220,20 @@
         }, 150);
     }
 
-    function sync() {
+    function sync(forceHideSub = false) {
         const h = Array.from(currentQuiz.q).map((c, i) => revealed.includes(i) ? `<span>${c}</span>` : `<span class="hidden">${c}</span>`).join('');
         document.getElementById('display').innerHTML = h;
-        if(subWindow) subWindow.document.getElementById('text').innerHTML = h;
+        if(subWindow) {
+            // ステータスがwaitingかつ強制非表示フラグがある場合は表示しない
+            db.ref('status').once('value', snap => {
+                const s = snap.val();
+                if(s === "waiting" || forceHideSub) {
+                    subWindow.document.getElementById('text').innerHTML = "";
+                } else {
+                    subWindow.document.getElementById('text').innerHTML = h;
+                }
+            });
+        }
     }
 
     function judge(isOK, targetPlayer = null) {
@@ -246,6 +257,7 @@
 
     function openType(t) {
         play('type');
+        db.ref('status').set('active'); // 文字種公開した瞬間から早押し可能にする
         const m = { 
             kanji:/[\u4E00-\u9FFF]/, hira:/[\u3040-\u309F]/, kana:/[\u30A0-\u30FF]/, num:/[0-9０-９]/, alp:/[a-zＡ-Ｚ]/i,
             sym:/[！？、。：；／＿－＝＋＊＆％＄＃＠！”＃＄％＆’（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～「」『』【】（）ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/
@@ -255,6 +267,7 @@
     }
 
     function openAnsChars() {
+        db.ref('status').set('active');
         const ansSet = new Set(Array.from(currentQuiz.a));
         Array.from(currentQuiz.q).forEach((c,i) => { if(ansSet.has(c)) if(!revealed.includes(i)) revealed.push(i); });
         sync();
@@ -262,10 +275,9 @@
 
     function resumeQuiz() { db.ref('status').set('active'); startQuiz(); }
     function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
-    function openAll() { revealed = Array.from(currentQuiz.q).map((_,i)=>i); sync(); }
+    function openAll() { db.ref('status').set('active'); revealed = Array.from(currentQuiz.q).map((_,i)=>i); sync(); }
     function resetAll() { if(confirm("完全リセットしますか？")) db.ref().set({ status: "idle", mode: "push", rankVisible: true }); }
 
-    // 解答者
     function initPlayer() {
         const btn = document.getElementById('remote-button');
         const bUI = document.getElementById('board-input-ui');
@@ -280,7 +292,8 @@
             } else {
                 bUI.style.display = 'none'; btn.style.display = 'inline-block';
             }
-            btn.disabled = !(name && w === 0 && !d.winner);
+            // activeな時だけボタンを有効化（waiting時は押せない）
+            btn.disabled = !(name && w === 0 && d.status === 'active' && !d.winner);
         });
     }
 
@@ -296,7 +309,6 @@
         db.ref('winner').transaction(cur => { if(!cur) return name; return; }, (err, ok) => { if(ok) db.ref('status').set('pushed'); });
     }
 
-    // 視聴者
     function openSubWindow() {
         subWindow = window.open("", "QuizSub", "width=1200,height=800");
         subWindow.document.write(`<html><head><style>
@@ -305,6 +317,7 @@
             #rank-side{width:320px;background:#111;border-left:3px solid #333;padding:25px;display:block;}
             #banner{display:none;font-size:5rem;padding:20px;background:#c0392b;position:absolute;top:0;width:100%;z-index:10;text-align:center;font-weight:bold;}
             #text{font-size:3.5rem;line-height:1.4;width:90%;text-align:center;font-weight:bold;}
+            #text span.hidden{visibility:hidden;}
             #ans{display:none;font-size:5.5rem;color:#f1c40f;border:10px solid #f1c40f;padding:20px;margin-top:25px;text-align:center;font-weight:bold;border-radius:20px;}
             #board-area{display:flex;flex-wrap:wrap;justify-content:center;margin-top:30px;gap:15px;}
             .rank-item{margin-bottom:12px;font-size:1.6rem;border-bottom:1px solid #444;padding-bottom:8px;display:flex;justify-content:space-between;}
@@ -315,7 +328,7 @@
             <div id="rank-side"><h2 style="color:#3498db;border-bottom:2px solid #555;">RANKING</h2><div id="rank-list"></div></div>
             <script>
                 window.showBanner = (m,c) => { const b=document.getElementById('banner'); b.innerText=m; b.style.background=c; b.style.display='block'; setTimeout(()=>b.style.display='none',2000); };
-                window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerText=q; };
+                window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerHTML=q; };
                 window.toggleRank = (v) => { document.getElementById('rank-side').style.display = v ? 'block' : 'none'; };
                 window.updateRank = (list) => { document.getElementById('rank-list').innerHTML = list.map(([n,v]) => '<div class="rank-item"><span>'+n+'</span><span>'+v+'pt</span></div>').join(''); };
                 window.syncBoard = (d) => {
@@ -328,7 +341,7 @@
                         }).join('');
                     } else { area.innerHTML = ""; }
                 };
-                window.resetForNext = () => { document.getElementById('banner').style.display='none'; document.getElementById('ans').style.display='none'; document.getElementById('board-area').innerHTML=''; };
+                window.resetForNext = () => { document.getElementById('banner').style.display='none'; document.getElementById('ans').style.display='none'; document.getElementById('board-area').innerHTML=''; document.getElementById('text').innerHTML=''; };
             <\/script></body></html>`);
     }
 </script>
