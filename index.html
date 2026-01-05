@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - The Perfect Version 1.8</title>
+    <title>QuizConsole Pro - The Perfect Version 1.9</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -23,7 +23,7 @@
         .btn-genre.active { background: var(--primary); color: white; }
         .mgr-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #222; font-size: 0.9rem; gap: 5px; }
         
-        /* 判定ボタンのデザイン強化 */
+        /* 判定ボタンのデザイン */
         .btn-ok { background: #16a34a !important; color: white; border: none; cursor: pointer; border-radius: 8px; font-weight: bold; }
         .btn-ng { background: #dc2626 !important; color: white; border: none; cursor: pointer; border-radius: 8px; font-weight: bold; }
         
@@ -193,37 +193,23 @@
                 const w = d.waits?.[n] || 0;
                 return `<div class="mgr-item"><div style="display:flex;justify-content:space-between"><span><b>${hEsc(n)}</b>: ${v}pt</span><button onclick="removePlayer('${n}')">🗑️</button></div><div><button onclick="modifyScore('${n}',1)">+</button><button onclick="modifyScore('${n}',-1)">-</button> <span style="color:red">休${w}</span><button onclick="modifyWait('${n}',1)">+</button><button onclick="modifyWait('${n}',-1)">-</button></div></div>`;
             }).join('');
-            
             const statusLabel = document.getElementById('status-label');
             if(d.status === 'active') { statusLabel.innerText = "🟢 受付中"; statusLabel.style.background = "var(--success)"; }
             else if(d.status === 'pushed') { statusLabel.innerText = "🔴 解答待ち"; statusLabel.style.background = "var(--danger)"; }
             else { statusLabel.innerText = "⚪ 待機中"; statusLabel.style.background = "#777"; }
-            
             document.getElementById('activePlayer').innerText = d.winner ? "🎤 " + d.winner : (d.mode === 'all_board' && d.status !== 'waiting' ? "🖊 全員解答中" : "待機中");
             if(d.status === "pushed" && lastStatus !== "pushed") { clearInterval(timer); requestSound('push'); }
             lastStatus = d.status;
-            
-            // 回答リストの描画（色分け対応）
             const bArea = document.getElementById('boardResults');
             if((d.mode === 'board' || d.mode === 'all_board') && d.boardAnswers) {
                 bArea.style.display = 'block';
                 document.getElementById('board-list-inner').innerHTML = Object.entries(d.boardAnswers).map(([n, ans]) => {
                     const sn = safeName(n);
-                    const isCorrect = d.correctList?.[sn];
-                    const isWrong = d.wrongList?.[sn];
-                    let cls = "board-mgr-item";
-                    if(isCorrect) cls += " is-correct";
-                    if(isWrong) cls += " is-wrong";
-                    return `<div class="${cls}">
-                        <span><b>${hEsc(n)}</b>: ${hEsc(ans)}</span>
-                        <div style="display:flex; gap:5px;">
-                            <button class="btn-ok" style="padding:5px 12px;" onclick="judge(true, '${n}')">〇</button>
-                            <button class="btn-ng" style="padding:5px 12px;" onclick="judge(false, '${n}')">×</button>
-                        </div>
-                    </div>`;
+                    const isCorrect = d.correctList?.[sn], isWrong = d.wrongList?.[sn];
+                    let cls = "board-mgr-item" + (isCorrect ? " is-correct" : (isWrong ? " is-wrong" : ""));
+                    return `<div class="${cls}"><span><b>${hEsc(n)}</b>: ${hEsc(ans)}</span><div style="display:flex; gap:5px;"><button class="btn-ok" style="padding:5px 12px;" onclick="judge(true, '${n}')">〇</button><button class="btn-ng" style="padding:5px 12px;" onclick="judge(false, '${n}')">×</button></div></div>`;
                 }).join('');
             } else bArea.style.display = 'none';
-
             if(subWindow) { 
                 subWindow.syncBoard(d); 
                 subWindow.toggleRank(d.rankVisible !== false); 
@@ -335,6 +321,7 @@
             <script>
                 const sounds = { push: new Audio('sounds/push.mp3'), correct: new Audio('sounds/correct.mp3'), wrong: new Audio('sounds/wrong.mp3'), type: new Audio('sounds/type.mp3') };
                 Object.values(sounds).forEach(s => s.load());
+                const safeName = (n) => n.replace(/[.#$/[\\]]/g, \"_\");
                 window.play = (s) => { if(sounds[s]) { sounds[s].pause(); sounds[s].currentTime = 0; sounds[s].play().catch(e => 0); } };
                 window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerHTML=q; };
                 window.toggleRank = (v) => { document.getElementById('rank-side').style.opacity = v ? '1' : '0'; };
@@ -345,8 +332,9 @@
                     const area = document.getElementById('board-area');
                     const players = Array.from(new Set([...Object.keys(d.boardAnswers || {}), ...Object.keys(d.typing || {})]));
                     area.innerHTML = players.map(n => {
+                        const sn = safeName(n);
                         const ans = d.boardAnswers?.[n]; const isTyping = d.typing?.[n];
-                        const isCorrect = d.correctList?.[safeName(n)], isWrong = d.wrongList?.[safeName(n)];
+                        const isCorrect = d.correctList?.[sn], isWrong = d.wrongList?.[sn];
                         const show = d.finalReveal || isWrong;
                         let content = show ? (ans || \"\") : (ans ? \"？？？\" : (isTyping ? \"<span style='color:#3498db;animation:blink 1s infinite'>🖊 入力中...</span>\" : \"\"));
                         if(!content && !isTyping) return \"\";
