@@ -64,56 +64,27 @@ input::placeholder { color: #6b7280; }
 #admin-ui button[onclick*="judge(false)"] { background: #7f1d1d !important; border: none; color: #ffffff; }
 #admin-ui button[onclick="revealAnswer()"] { background: #4c1d95 !important; border: none; color: #ffffff; }
 #admin-ui button[onclick="startQuiz()"] { background: #2563eb !important; color: #ffffff !important; border: none; }
-        /* =========================
-   🧠 管理者：現在の問題（答え／全文）ダーク化
+/* =========================
+   🖤 管理者：正解・全文・速度エリア完全ダーク化
    ========================= */
 
-/* 正解・全文を囲んでいるコンテナ */
+/* 正解・全文を囲むブロック */
 #admin-ui .container > div[style*="正解"] {
-    background: #0d1117 !important;
-    border: 2px solid #30363d !important;
-    color: #e5e7eb !important;
+    background: #0d1117 !important;      /* ダーク背景 */
+    border: 2px solid #30363d !important; /* 枠もダーク */
+    color: #e5e7eb !important;          /* 文字色白 */
+    padding: 12px;
+    border-radius: 8px;
 }
 
-/* 「正解：」ラベル */
+/* 正解ラベル */
 #admin-ui .container > div[style*="正解"] strong {
-    color: #9ca3af;
+    color: #9ca3af !important;           /* ラベルは薄グレー */
 }
 
 /* 正解テキスト */
 #admin-a-full {
-    color: #ff6b6b !important;
-    text-shadow: 0 0 6px rgba(255, 80, 80, 0.4);
-}
-
-/* 全文テキスト */
-#admin-q-full {
-    background: #000000 !important;
-    color: #ffffff !important;
-    border: 1px solid #30363d;
-    padding: 6px 8px;
-    border-radius: 6px;
-    display: inline-block;
-}
-        /* =========================
-   🧠 管理者：正解・全文エリア & 読み上げ速度エリア 完全ダーク化
-   ========================= */
-
-/* 正解・全文 全体ブロック */
-#admin-ui .container > div[style*="正解"] {
-    background: #0d1117 !important;
-    border: 2px solid #30363d !important;
-    color: #e5e7eb !important;
-}
-
-/* 「正解：」「全文：」ラベル */
-#admin-ui .container > div[style*="正解"] strong {
-    color: #9ca3af !important;
-}
-
-/* 正解テキスト */
-#admin-a-full {
-    color: #ff6b6b !important;
+    color: #ff6b6b !important;           /* 赤文字で目立たせる */
     font-weight: bold;
     font-size: 1.2rem;
     text-shadow: 0 0 6px rgba(255, 80, 80, 0.4);
@@ -121,8 +92,8 @@ input::placeholder { color: #6b7280; }
 
 /* 全文テキスト */
 #admin-q-full {
-    background: #000000 !important;
-    color: #ffffff !important;
+    background: #000 !important;         /* 黒背景 */
+    color: #fff !important;              /* 白文字 */
     border: 1px solid #30363d;
     padding: 6px 10px;
     border-radius: 6px;
@@ -131,7 +102,7 @@ input::placeholder { color: #6b7280; }
 }
 
 /* =========================
-   🎧 読み上げ速度調整エリア
+   🎚 読み上げ速度調整エリア
    ========================= */
 
 /* 読み上げ速度エリア全体 */
@@ -139,17 +110,21 @@ input::placeholder { color: #6b7280; }
     background: #0d1117 !important;
     border: 2px solid #30363d !important;
     color: #e5e7eb !important;
+    padding: 10px;
+    border-radius: 6px;
 }
 
-/* 「速度:」ラベル */
+/* 速度ラベル */
 #admin-ui .container > div[style*="速度"] span {
-    color: #9ca3af;
+    color: #9ca3af !important;
     font-weight: bold;
 }
 
-/* range スライダー */
+/* スライダー */
 #readSpeed {
     accent-color: var(--primary);
+    background: #111827;
+    border: 1px solid #30363d;
 }
 
 /* 自動読上開始ボタン */
@@ -157,6 +132,7 @@ input::placeholder { color: #6b7280; }
     background: #2563eb !important;
     color: #ffffff !important;
     border: none;
+    border-radius: 5px;
     box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
 }
 
@@ -492,5 +468,6 @@ input::placeholder { color: #6b7280; }
 </script>
 </body>
 </html>
+
 
 
