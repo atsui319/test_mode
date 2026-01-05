@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Pro - The Perfect Version1.2</title>
+    <title>QuizConsole Pro - The Perfect Version1.3</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -29,7 +29,6 @@
     /* =========================
    🌙 Dark Mode Theme Patch
    ========================= */
-
 :root {
     --bg: #0f1115;
     --primary: #4aa3ff;
@@ -38,7 +37,6 @@
     --dark: #000000;
     --test: #8e7dff;
 }
-
 body { background: var(--bg); color: #e5e7eb; }
 .container, .sidebar-section { background: #161a22; color: #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.6); border: 1px solid #2a2f3a; }
 .admin-flex { background: var(--bg); }
@@ -56,20 +54,16 @@ input::placeholder { color: #6b7280; }
 #player-ui .container { background: #111827; }
 #remote-button { background: #7f1d1d; color: #fff; border-color: #991b1b; }
 #remote-button:disabled { background: #1f2937; color: #6b7280; border-color: #333; }
-
 #admin-q-full { display: block; margin-top: 4px; padding: 8px 10px; background: #000000 !important; color: #ffffff !important; border-radius: 6px; font-weight: bold; line-height: 1.4; }
 #admin-a-full { color: #ff4d4d !important; font-weight: bold; font-size: 1.1rem; }
-
 #boardResults { background: #111827 !important; border: 2px solid #334155 !important; color: #e5e7eb !important; }
 #board-list-inner { background: transparent !important; color: #e5e7eb !important; }
 .board-ans-item { background: #1f2937; color: #e5e7eb; border-left: 5px solid #555; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
-
 #admin-ui > .admin-flex .container > div[style*="fff3cd"] { background: #0f172a !important; border: 2px solid #334155 !important; color: #e5e7eb; }
 #admin-ui button[onclick*="judge(true)"] { background: #166534 !important; border: none; color: #ffffff; }
 #admin-ui button[onclick*="judge(false)"] { background: #7f1d1d !important; border: none; color: #ffffff; }
 #admin-ui button[onclick="revealAnswer()"] { background: #4c1d95 !important; border: none; color: #ffffff; }
 #admin-ui button[onclick="startQuiz()"] { background: #2563eb !important; color: #ffffff !important; border: none; }
-
     </style>
 </head>
 <body>
@@ -180,18 +174,18 @@ input::placeholder { color: #6b7280; }
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     
-    let masterData = { all: [] }, activeGenre = 'all', usedSet = new Set(), currentQuiz = { q: "", a: "" }, revealed = [], history = [];
+    let masterData = { all: [] }, activeGenre = 'all', currentQuiz = { q: "", a: "" }, revealed = [], history = [];
     let timer = null, subWindow = null, lastStatus = "", isPlayerLocked = false;
 
-const URLS = {
-    ori: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFuFjp8CnBMqfdRPKbQ_FPC6zWwgdQBVdTDsdWTHbBN92vXADxbVTmHdLm_C3Yn-Eeu5ZWm9WXRb0c/pub?output=csv",
-    ent: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjKfK1zTkytDnO1HiVRHa0N79VJncU_IXC3uv8Q2EBvBIm5mRPw82ie-widupSvvlR1vQdkVeeIIMM/pub?output=csv",
-    anime: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTBRf9k4zS7Ht5s7GKejqT2d-cyWbDHd19DwTPmAzoHe40d9nV1cVu-RH565sIq9GbYmEKkzhpBytp/pub?output=csv",
-    social: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXVYOqHu_0VRIkiVK0RQO-ZWPZ6pHGqIw5VxBWdOlg3-HbP3q26gM0fVxTndREhjqbaxFzcjeuoMcE/pub?output=csv",
-    life: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTr7JL0lBCMLRBFi-CraPlJxzp4xrGD8RSnc8MSuoV3ORISo0iCFWMmI_FCtDlgkxwPqmv_TwAvufn/pub?output=csv",
-    sport: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSJYls3O8_98SKNWqx34c0V5HLIaXdxxA8v4E3c1iwrTFZBL1TSxzeem9AbKZKYfMkQEcu7bECcsgVo/pub?output=csv",
-    humanities: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTTUKra8YsSzkZHvm7QRzKeUT6KBi90JHU99B8AK2YiFd2hpxPfKQNCcrUiBVn6BTyPUWqNwJEUVsgD/pub?output=csv"
-};
+    const URLS = {
+        ori: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFuFjp8CnBMqfdRPKbQ_FPC6zWwgdQBVdTDsdWTHbBN92vXADxbVTmHdLm_C3Yn-Eeu5ZWm9WXRb0c/pub?output=csv",
+        ent: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjKfK1zTkytDnO1HiVRHa0N79VJncU_IXC3uv8Q2EBvBIm5mRPw82ie-widupSvvlR1vQdkVeeIIMM/pub?output=csv",
+        anime: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQTBRf9k4zS7Ht5s7GKejqT2d-cyWbDHd19DwTPmAzoHe40d9nV1cVu-RH565sIq9GbYmEKkzhpBytp/pub?output=csv",
+        social: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXVYOqHu_0VRIkiVK0RQO-ZWPZ6pHGqIw5VxBWdOlg3-HbP3q26gM0fVxTndREhjqbaxFzcjeuoMcE/pub?output=csv",
+        life: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTr7JL0lBCMLRBFi-CraPlJxzp4xrGD8RSnc8MSuoV3ORISo0iCFWMmI_FCtDlgkxwPqmv_TwAvufn/pub?output=csv",
+        sport: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSJYls3O8_98SKNWqx34c0V5HLIaXdxxA8v4E3c1iwrTFZBL1TSxzeem9AbKZKYfMkQEcu7bECcsgVo/pub?output=csv",
+        humanities: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTTUKra8YsSzkZHvm7QRzKeUT6KBi90JHU99B8AK2YiFd2hpxPfKQNCcrUiBVn6BTyPUWqNwJEUVsgD/pub?output=csv"
+    };
 
     const hEsc = (s) => { const e = document.createElement('div'); e.textContent = s; return e.innerHTML; };
     const safeName = (n) => n.replace(/[.#$/[\]]/g, "_");
@@ -199,7 +193,6 @@ const URLS = {
     function switchPage(role) { document.querySelectorAll('.page-section').forEach(el => el.style.display = 'none'); document.getElementById(role + '-ui').style.display = 'block'; role === 'admin' ? initAdmin() : initPlayer(); }
 
     async function initAdmin() {
-        db.ref('usedSet').on('value', s => { usedSet = new Set(s.val() || []); renderList(); });
         const tabs = document.getElementById('genre-tabs');
         tabs.innerHTML = '<button class="btn-genre active" onclick="setGenre(\'all\')">全</button>' + Object.keys(URLS).map(k => `<button class="btn-genre" onclick="setGenre('${k}')">${k}</button>`).join('');
         for (let [k, url] of Object.entries(URLS)) {
@@ -234,25 +227,19 @@ const URLS = {
                 bArea.style.display = 'block';
                 document.getElementById('board-list-inner').innerHTML = Object.entries(d.boardAnswers).map(([n, ans]) => `<div class="board-ans-item" style="border-left:5px solid ${d.correctList?.[n]?'green':(d.wrongList?.[n]?'red':'#ccc')}"><span>${hEsc(n)}: ${hEsc(ans)}</span><div><button onclick="judge(true, '${n}')">〇</button><button onclick="judge(false, '${n}')">×</button></div></div>`).join('');
             } else bArea.style.display = 'none';
-            
-            // 履歴更新の監視
             if(d.history) { history = d.history; renderHistory(); }
-            
             if(subWindow) { subWindow.syncBoard(d); subWindow.toggleRank(d.rankVisible !== false); subWindow.updateRank(scoreEntries); if(d.isGameSet) subWindow.showResult(scoreEntries, history); else subWindow.hideResult(); }
         });
     }
 
-function removePlayer(n) {
-    if(confirm(`${n} を削除（キック）しますか？`)) {
-        const sn = safeName(n);
-        db.ref('scores/' + sn).remove();
-        db.ref('waits/' + sn).remove();
-        db.ref('boardAnswers/' + sn).remove();
-        db.ref('typing/' + sn).remove();
-        db.ref('correctList/' + sn).remove();
-        db.ref('wrongList/' + sn).remove();
+    function removePlayer(n) {
+        if(confirm(`${n} を削除しますか？`)) {
+            const sn = safeName(n);
+            db.ref('scores/' + sn).remove(); db.ref('waits/' + sn).remove();
+            db.ref('boardAnswers/' + sn).remove(); db.ref('typing/' + sn).remove();
+            db.ref('correctList/' + sn).remove(); db.ref('wrongList/' + sn).remove();
+        }
     }
-}
     function modifyScore(n, v) { db.ref('scores/'+safeName(n)).transaction(s => (s||0)+v); }
     function modifyWait(n, v) { db.ref('waits/'+safeName(n)).transaction(w => Math.max(0, (w||0)+v)); }
     function toggleRanking() { db.ref('rankVisible').transaction(v => v === undefined ? false : !v); }
@@ -265,11 +252,10 @@ function removePlayer(n) {
         let list = masterData[activeGenre] || [];
         if(s) { list = list.filter(i => i.q.includes(s) || i.a.includes(s)); } 
         else { list = shuffleArray([...list]).slice(0, 50); }
-        area.innerHTML = list.map(i => `<div class="quiz-item" onclick="applyQuiz('${hEsc(i.q.replace(/'/g,"\\'"))}', '${hEsc(i.a.replace(/'/g,"\\'"))}')" style="${usedSet.has(i.q)?'opacity:0.3;':'cursor:pointer;'}"><strong>${hEsc(i.a)}</strong><br><small style="color:#666;">${hEsc(i.q)}</small></div>`).join('');
+        area.innerHTML = list.map(i => `<div class="quiz-item" onclick="applyQuiz('${hEsc(i.q.replace(/'/g,"\\'"))}', '${hEsc(i.a.replace(/'/g,"\\'"))}')" style="cursor:pointer;"><strong>${hEsc(i.a)}</strong><br><small style="color:#666;">${hEsc(i.q)}</small></div>`).join('');
         area.scrollTop = 0;
     }
 
-    // 履歴描画
     function renderHistory() {
         const area = document.getElementById('history-list-area');
         area.innerHTML = history.map((item, idx) => `
@@ -283,7 +269,6 @@ function removePlayer(n) {
         `).join('');
     }
 
-    // 個別履歴削除
     function deleteHistoryItem(idx) {
         if(confirm("この履歴を削除しますか？")) {
             const newHistory = [...history];
@@ -292,7 +277,6 @@ function removePlayer(n) {
         }
     }
 
-    // 全履歴削除
     function clearHistory() {
         if(confirm("全ての出題履歴を消去しますか？")) {
             db.ref('history').set([]);
@@ -301,17 +285,13 @@ function removePlayer(n) {
 
     function applyQuiz(q, a) { 
         clearInterval(timer); currentQuiz = { q, a }; revealed = []; 
-        usedSet.add(q); db.ref('usedSet').set([...usedSet]); 
-        
-        // 履歴追加
         const newHistory = [...history, {q, a}];
         db.ref('history').set(newHistory);
-
         document.getElementById('admin-q-full').innerText = q; 
         document.getElementById('admin-a-full').innerText = a; 
         db.ref().update({ status: "waiting", winner: "", correctList: null, wrongList: null, boardAnswers: null, typing: null, finalReveal: false, isGameSet: false }); 
         if(subWindow) subWindow.resetForNext(); 
-        sync(true); renderList(); 
+        sync(true);
     }
 
     function startQuiz() { db.ref('status').set('active'); const speed = parseInt(document.getElementById('readSpeed').value); clearInterval(timer); timer = setInterval(() => { if(revealed.length < currentQuiz.q.length) { let n = 0; while(revealed.includes(n)) n++; revealed.push(n); sync(); } else clearInterval(timer); }, speed); }
@@ -342,7 +322,7 @@ function removePlayer(n) {
 
     function resumeQuiz() { db.ref('status').set('active'); if(revealed.length < currentQuiz.q.length) startQuiz(); }
     function revealAnswer() { db.ref('finalReveal').set(true); if(subWindow) subWindow.reveal(currentQuiz.a, currentQuiz.q); }
-    function resetAll() { if (confirm("完全リセット？")) { db.ref('history').set([]); usedSet.clear(); db.ref().set({ status: "idle", mode: "push", rankVisible: true, isGameSet: false, usedSet: [], history: [] }); renderList(); } }
+    function resetAll() { if (confirm("完全リセット？")) { db.ref('history').set([]); db.ref().set({ status: "idle", mode: "push", rankVisible: true, isGameSet: false, history: [] }); } }
 
     function lockName() { const n = document.getElementById('p-name').value.trim(); if(!n) return alert("名前！"); isPlayerLocked = true; document.getElementById('p-name').disabled = true; document.getElementById('p-lock-btn').style.display = 'none'; document.getElementById('locked-name-display').style.display = 'block'; document.getElementById('current-player-name').innerText = n; }
     function initPlayer() { 
@@ -393,8 +373,8 @@ function removePlayer(n) {
                 window.play = (s) => { if(sounds[s]) { sounds[s].pause(); sounds[s].currentTime = 0; sounds[s].play().catch(e => 0); } };
                 window.reveal = (a,q) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; document.getElementById('text').innerHTML=q; };
                 window.toggleRank = (v) => { document.getElementById('rank-side').style.opacity = v ? '1' : '0'; };
-                window.updateRank = (list) => { document.getElementById('rank-list').innerHTML = list.map(([n,v]) => '<div style="display:flex;justify-content:space-between;font-size:1.6rem;padding:8px 0;border-bottom:1px solid #333;"><span>'+n+'</span><span>'+v+'pt</span></div>').join(''); };
-                window.showResult = (list, hist) => { document.getElementById('result-overlay').style.display='flex'; document.getElementById('res-list').innerHTML = list.map(([n,v],i) => '<div style="font-size:2rem;margin:10px;padding:15px;background:rgba(255,255,255,0.1);border-radius:10px;border-left:10px solid '+(i===0?'#f1c40f':(i===1?'#bdc3c7':'#cd7f32'))+'">'+(i+1)+'位 '+n+': '+v+'pt</div>').join(''); document.getElementById('hist-inner').innerHTML = (hist || []).map(item => '<div style="margin-bottom:15px;border-bottom:1px solid #444;font-size:0.9rem;">'+item.q+'<br><b style="color:#f1c40f;font-size:1.2rem;">正解: '+item.a+'</b></div>').join(''); };
+                window.updateRank = (list) => { document.getElementById('rank-list').innerHTML = list.map(([n,v]) => '<div style=\"display:flex;justify-content:space-between;font-size:1.6rem;padding:8px 0;border-bottom:1px solid #333;\"><span>'+n+'</span><span>'+v+'pt</span></div>').join(''); };
+                window.showResult = (list, hist) => { document.getElementById('result-overlay').style.display='flex'; document.getElementById('res-list').innerHTML = list.map(([n,v],i) => '<div style=\"font-size:2rem;margin:10px;padding:15px;background:rgba(255,255,255,0.1);border-radius:10px;border-left:10px solid '+(i===0?'#f1c40f':(i===1?'#bdc3c7':'#cd7f32'))+'\">'+(i+1)+'位 '+n+': '+v+'pt</div>').join(''); document.getElementById('hist-inner').innerHTML = (hist || []).map(item => '<div style=\"margin-bottom:15px;border-bottom:1px solid #444;font-size:0.9rem;\">'+item.q+'<br><b style=\"color:#f1c40f;font-size:1.2rem;\">正解: '+item.a+'</b></div>').join(''); };
                 window.hideResult = () => { document.getElementById('result-overlay').style.display='none'; };
                 window.syncBoard = (d) => {
                     const area = document.getElementById('board-area');
@@ -405,7 +385,7 @@ function removePlayer(n) {
                         const show = d.finalReveal || isWrong;
                         let content = show ? (ans || "") : (ans ? "？？？" : (isTyping ? "<span style='color:#3498db;animation:blink 1s infinite'>🖊 入力中...</span>" : ""));
                         if(!content && !isTyping) return "";
-                        return '<div class="board-box '+(isCorrect?'correct':(isWrong?'wrong':''))+'"><small>'+n+'</small><div style="font-size:2.2rem;font-weight:bold;color:#f1c40f;min-height:1.2em;">'+content+'</div></div>';
+                        return '<div class=\"board-box '+(isCorrect?'correct':(isWrong?'wrong':''))+'\"><small>'+n+'</small><div style=\"font-size:2.2rem;font-weight:bold;color:#f1c40f;min-height:1.2em;\">'+content+'</div></div>';
                     }).join('');
                 };
                 window.resetForNext = () => { document.getElementById('ans').style.display='none'; document.getElementById('board-area').innerHTML=''; document.getElementById('text').innerHTML=''; };
