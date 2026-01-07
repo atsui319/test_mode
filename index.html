@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>QuizConsole Simple - Board Pro V3</title>
+    <title>QuizConsole Board Only V4</title>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
     <style>
@@ -16,7 +16,6 @@
         .sidebar { width: 300px; display: flex; flex-direction: column; gap: 15px; height: 100%; }
         .sidebar-section { background: #161a22; padding: 12px; border-radius: 12px; display: flex; flex-direction: column; min-height: 0; border: 1px solid #2a2f3a; }
         #full-mgr-list, #history-list { background: #0d1117; border: 1px solid #222; border-radius: 8px; overflow-y: auto; flex: 1; }
-        #display { font-size: 1.5rem; background: #000; color: white; padding: 15px; border-radius: 8px; min-height: 2em; display: flex; flex-wrap: wrap; margin-bottom: 15px; border: 2px solid #333; }
         .mgr-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #222; font-size: 0.85rem; gap: 5px; }
         .btn-ok { background: #16a34a !important; color: white; border: none; cursor: pointer; border-radius: 8px; font-weight: bold; }
         .btn-ng { background: #dc2626 !important; color: white; border: none; cursor: pointer; border-radius: 8px; font-weight: bold; }
@@ -31,7 +30,7 @@
 
 <div id="role-ui" class="page-section">
     <div class="container" style="max-width: 400px; text-align: center; margin: 100px auto;">
-        <h2>QuizConsole Board Lite</h2>
+        <h2>QuizBoard Only</h2>
         <button style="width:100%; padding:20px; margin-bottom:15px;" onclick="switchPage('admin')">💻 管理者コンソール</button>
         <button style="width:100%; padding:20px; background:var(--primary); color:white; border:none; border-radius:8px;" onclick="switchPage('player')">📱 回答者端末</button>
     </div>
@@ -41,25 +40,20 @@
     <div class="admin-flex">
         <div class="main-panel">
             <div class="container">
-                <h3 style="margin-top:0;">📝 問題セット (管理用)</h3>
-                <textarea id="input-q" placeholder="問題文（管理画面のみ表示）" style="height:60px; margin-bottom:10px;"></textarea>
-                <input type="text" id="input-a" placeholder="正解（視聴画面に大きく出ます）" style="margin-bottom:10px;">
+                <h3 style="margin-top:0;">📝 回答管理</h3>
+                <input type="text" id="input-q" placeholder="問題タイトルなど（管理用）" style="margin-bottom:10px;">
                 <div style="display:flex; gap:10px;">
-                    <button onclick="applyCustomQuiz()" style="flex:2; padding:15px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">問題をリセット・セット</button>
+                    <button onclick="applyCustomQuiz()" style="flex:2; padding:15px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">盤面をリセット</button>
                     <button onclick="openSubWindow()" style="flex:1; background:#4c1d95; color:white; border-radius:8px; border:none; cursor:pointer;">📺 視聴者画面表示</button>
                 </div>
             </div>
 
             <div class="container">
                 <div style="background:#1e293b; padding:15px; border-radius:10px; text-align:center; border:2px solid #334155;">
-                    <div id="boardResults" style="text-align:left; background:#111827; padding:10px; border-radius:8px; max-height:400px; overflow-y:auto; border:2px solid #334155;">
+                    <div id="boardResults" style="text-align:left; background:#111827; padding:10px; border-radius:8px; max-height:500px; overflow-y:auto; border:2px solid #334155;">
                         <div id="board-list-inner"></div>
                     </div>
-                    <div style="margin-top:10px; display:flex; gap:10px;">
-                        <button onclick="revealAnswer()" style="flex:1; padding:15px; background:#4c1d95; color:white; border:none; border-radius:8px; font-weight:bold; font-size:1.2rem;">📢 正解をドカンと公開</button>
-                    </div>
                 </div>
-                <div id="display" style="margin-top:15px; color:#888;">【管理用問題プレビュー】<br><span id="q-preview"></span></div>
             </div>
         </div>
 
@@ -97,7 +91,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     
-    let historyList = [], currentQuiz = { q: "", a: "" }, subWindow = null, isPlayerLocked = false;
+    let historyList = [], subWindow = null, isPlayerLocked = false;
 
     const hEsc = (s) => { const e = document.createElement('div'); e.textContent = s; return e.innerHTML; };
     const safeName = (n) => n.replace(/[.#$/[\]]/g, "_");
@@ -134,21 +128,17 @@
 
     function applyCustomQuiz() {
         const q = document.getElementById('input-q').value.trim();
-        const a = document.getElementById('input-a').value.trim();
-        if(!q || !a) return alert("問題と答えを入力してください");
-        currentQuiz = { q, a };
-        historyList.push({q, a});
+        historyList.push({q: q || "無題の問題", a: "リセット済"});
         renderHistory();
-        document.getElementById('q-preview').innerText = q;
         db.ref().update({ 
-            status: "active", winner: "", correctList: null, wrongList: null, 
-            boardAnswers: null, typing: null, finalReveal: false, openPlayers: null 
+            correctList: null, wrongList: null, 
+            boardAnswers: null, typing: null, openPlayers: null 
         });
         if(subWindow) subWindow.resetForNext();
     }
 
     function renderHistory() {
-        document.getElementById('history-list').innerHTML = historyList.slice().reverse().map(h => `<div class="mgr-item" style="background:#1a1f29;"><strong>${hEsc(h.a)}</strong><small style="color:#888;">${hEsc(h.q)}</small></div>`).join('');
+        document.getElementById('history-list').innerHTML = historyList.slice().reverse().map(h => `<div class="mgr-item" style="background:#1a1f29;"><small style="color:#888;">${hEsc(h.q)}</small></div>`).join('');
     }
 
     function judge(isOK, targetPlayer) {
@@ -165,11 +155,6 @@
     function toggleOpen(n) {
         const sn = safeName(n);
         db.ref('openPlayers/'+sn).transaction(v => !v);
-    }
-
-    function revealAnswer() {
-        db.ref('finalReveal').set(true);
-        if(subWindow) subWindow.reveal(currentQuiz.a);
     }
 
     function modifyScore(n, v) { db.ref('scores/'+safeName(n)).transaction(s => (s||0)+v); }
@@ -216,22 +201,19 @@
     function openSubWindow() {
         subWindow = window.open("", "QuizSub", "width=1200,height=800");
         subWindow.document.write(`<html><head><style>
-            body{background:#000;color:#fff;font-family:sans-serif;margin:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:40px;}
-            #ans{display:none;font-size:8rem;color:#f1c40f;border:15px solid #f1c40f;padding:40px;border-radius:30px;font-weight:bold;text-align:center;margin-bottom:40px;box-shadow: 0 0 50px rgba(241,196,15,0.3);}
-            #board-area{display:flex;flex-wrap:wrap;justify-content:center;gap:30px;width:100%;}
-            .board-box { background:#111; padding:30px; border-radius:20px; min-width:250px; text-align:center; border:6px solid #444; transition: all 0.3s;}
+            body{background:#000;color:#fff;font-family:sans-serif;margin:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px;}
+            #board-area{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;width:100%;}
+            .board-box { background:#111; padding:25px; border-radius:15px; min-width:280px; text-align:center; border:5px solid #444; transition: all 0.3s;}
             .board-box.correct { border-color: #2ecc71; background: #041; }
             .board-box.wrong { border-color: #e74c3c; background: #400; }
-            .player-name { font-size: 1.5rem; color: #888; margin-bottom: 15px; }
-            .answer-text { font-size: 4rem; font-weight: bold; color: #f1c40f; min-height: 1.2em; }
+            .player-name { font-size: 1.4rem; color: #aaa; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;}
+            .answer-text { font-size: 3.5rem; font-weight: bold; color: #f1c40f; min-height: 1.2em; display: flex; align-items: center; justify-content: center;}
             @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         </style></head><body>
-            <div id="ans"></div>
             <div id="board-area"></div>
             <script>
                 const sounds = { correct: new Audio('https://s3.amazonaws.com/freecodecamp/drums/Chord_1.mp3'), wrong: new Audio('https://s3.amazonaws.com/freecodecamp/drums/Chord_3.mp3') };
                 window.play = (s) => { if(sounds[s]) { sounds[s].currentTime = 0; sounds[s].play().catch(e => 0); } };
-                window.reveal = (a) => { document.getElementById('ans').innerText=a; document.getElementById('ans').style.display='block'; };
                 window.syncBoard = (d) => {
                     const area = document.getElementById('board-area');
                     const players = Array.from(new Set([...Object.keys(d.boardAnswers || {}), ...Object.keys(d.typing || {})]));
@@ -239,13 +221,12 @@
                         const sn = n.replace(/[.#$/[\\\]]/g, "_");
                         const ans = d.boardAnswers?.[n]; const isTyping = d.typing?.[n];
                         const isCorrect = d.correctList?.[sn], isWrong = d.wrongList?.[sn], isOpen = d.openPlayers?.[sn];
-                        const show = d.finalReveal || isOpen;
-                        let content = show ? (ans || "") : (ans ? "？？？" : (isTyping ? "<span style='color:#3498db;animation:blink 1s infinite'>🖊 入力中...</span>" : ""));
+                        let content = isOpen ? (ans || "") : (ans ? "？？？" : (isTyping ? "<span style='font-size:1.5rem;color:#3498db;animation:blink 1s infinite'>🖊 入力中...</span>" : ""));
                         if(!content && !isTyping) return "";
                         return '<div class="board-box '+(isCorrect?'correct':(isWrong?'wrong':''))+'"><div class="player-name">'+n+'</div><div class="answer-text">'+content+'</div></div>';
                     }).join('');
                 };
-                window.resetForNext = () => { document.getElementById('ans').style.display='none'; document.getElementById('board-area').innerHTML=''; };
+                window.resetForNext = () => { document.getElementById('board-area').innerHTML=''; };
             <\/script></body></html>`);
     }
 </script>
